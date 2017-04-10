@@ -6,6 +6,8 @@ uint8_t TIME_BUFFER[6];
 uint8_t TEMPERATURE[2];
 uint8_t TEMPERATURE_BUFFER[2];
 
+uint8_t METERAGE_BUFFER[6];
+
 
 volatile uint8_t OFFSET;
 
@@ -13,9 +15,9 @@ volatile uint8_t OFFSET;
 void setup() {
     OFFSET = 0;
     Serial.begin(250000);
-    SPI.setDataMode (SPI_MODE3);
-    SPI.setBitOrder (LSBFIRST);
     SPCR |= bit (SPE);
+    SPI.setBitOrder(LSBFIRST);
+    SPI.setDataMode(SPI_MODE3);
     SPI.attachInterrupt();
 }
 
@@ -29,14 +31,14 @@ ISR(SPI_STC_vect) {
     case 5: TEMPERATURE_BUFFER[1] = value; break;
     case 10: if (value >> 6 != 0b00) OFFSET = 0; break;
     case 11: if (value != 0x45) OFFSET = 0; break;
-//    case 18: METERAGE_BUFFER[0] = value; break;
-//    case 19: METERAGE_BUFFER[1] = value; break;
-//    case 20: METERAGE_BUFFER[2] = value; break;
+    case 18: METERAGE_BUFFER[0] = value; break;
+    case 19: METERAGE_BUFFER[1] = value; break;
+    case 20: METERAGE_BUFFER[2] = value; break;
     case 21: if (value >> 6 != 0b10) OFFSET = 0; break;
     case 22: if (value != 0x45) OFFSET = 0; break;
-//    case 23: METERAGE_BUFFER[3] = value; break;
-//    case 24: METERAGE_BUFFER[4] = value; break;
-//    case 28: METERAGE_BUFFER[5] = value; break;
+    case 23: METERAGE_BUFFER[3] = value; break;
+    case 24: METERAGE_BUFFER[4] = value; break;
+    case 28: METERAGE_BUFFER[5] = value; break;
     case 32: if (value >> 6 != 0b01) OFFSET = 0; break;
     case 33: if (value != 0x45) OFFSET = 0; break;
     case 36: TIME_BUFFER[0] = value; break;
