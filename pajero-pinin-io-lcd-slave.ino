@@ -16,10 +16,8 @@ void setup() {
     SPI.setDataMode (SPI_MODE3);
     SPI.setBitOrder (LSBFIRST);
     SPCR |= bit (SPE);
-    pinMode (MISO, OUTPUT);
     SPI.attachInterrupt();
 }
-
 
 
 
