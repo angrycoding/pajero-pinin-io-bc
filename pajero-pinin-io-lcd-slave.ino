@@ -90,11 +90,11 @@
 #define CHAR_8 127
 #define CHAR_9 95
 
-uint32_t RAW_TIME;
-uint32_t RAW_TEMPERATURE;
-uint32_t RAW_FUEL;
-uint32_t RAW_SPEED;
-uint32_t RAW_CONSUMPTION;
+float BC_TIME;
+float BC_TEMPERATURE;
+float BC_FUEL;
+float BC_SPEED;
+float BC_CONSUMPTION;
 
 volatile uint8_t SPI_STATE;
 volatile uint32_t SPI_TIME;
@@ -102,14 +102,21 @@ volatile uint32_t SPI_METERAGE;
 volatile uint32_t SPI_TEMPERATURE;
 volatile uint8_t SPI_METERAGE_UNIT;
 
+void attachSlaveInterrupt() {
+  SPI_TIME = 0;
+  SPI_METERAGE = 0;
+  SPI_TEMPERATURE = 0;
+  SPI_METERAGE_UNIT = 0;
+  SPI_STATE = SPI_STATE_START;
+  SPI.attachInterrupt();
+}
 
 void setup() {
   Serial.begin(115200);
-  SPI_STATE = SPI_STATE_START;
 	SPCR |= bit(SPE);
 	SPI.setBitOrder(LSBFIRST);
 	SPI.setDataMode(SPI_MODE3);
-	SPI.attachInterrupt();
+  attachSlaveInterrupt(); 
 }
 
 
@@ -200,48 +207,51 @@ void loop() {
 
 	if (SPI_STATE == SPI_STATE_DONE) {
 
-		if (RAW_TIME != SPI_TIME) {
-			RAW_TIME = SPI_TIME;
+    float newTime = uint32_to_float(SPI_TIME);
+    float newMeterage = uint32_to_float(SPI_METERAGE);
+    float newTemperature = uint32_to_float(SPI_TEMPERATURE);
+    
+		if (BC_TIME != newTime) {
+			BC_TIME = newTime;
 			Serial.print("NEW_TIME: ");
-			Serial.println(uint32_to_float(RAW_TIME));
+			Serial.println(BC_TIME);
 		}
 
-		if (RAW_TEMPERATURE != SPI_TEMPERATURE) {
-			RAW_TEMPERATURE = SPI_TEMPERATURE;
+		if (BC_TEMPERATURE != newTemperature) {
+			BC_TEMPERATURE = newTemperature;
 			Serial.print("NEW_TEMPERATURE: ");
-			Serial.println(uint32_to_float(RAW_TEMPERATURE));
+			Serial.println(BC_TEMPERATURE);
 		}
 
 		if (SPI_METERAGE_UNIT == FUEL_KM ||
 			SPI_METERAGE_UNIT == FUEL_MILES) {
-			if (RAW_FUEL != SPI_METERAGE) {
-				RAW_FUEL = SPI_METERAGE;
+			if (BC_FUEL != newMeterage) {
+				BC_FUEL = newMeterage;
 				Serial.print("NEW_FUEL: ");
-				Serial.println(uint32_to_float(RAW_FUEL));
+				Serial.println(BC_FUEL);
 			}
 		}
 
 		else if (SPI_METERAGE_UNIT == SPEED_KMH ||
 				SPI_METERAGE_UNIT == SPEED_MPH) {
-			if (RAW_SPEED != SPI_METERAGE) {
-				RAW_SPEED = SPI_METERAGE;
+			if (BC_SPEED != newMeterage) {
+				BC_SPEED = newMeterage;
 				Serial.print("NEW_SPEED: ");
-				Serial.println(uint32_to_float(RAW_SPEED));
+				Serial.println(BC_SPEED);
 			}
 		}
 
 		else if (SPI_METERAGE_UNIT == CONSUMPTION_KML ||
 				SPI_METERAGE_UNIT == CONSUMPTION_MPG ||
 				SPI_METERAGE_UNIT == CONSUMPTION_L100KM) {
-			if (RAW_CONSUMPTION != SPI_METERAGE) {
-				RAW_CONSUMPTION = SPI_METERAGE;
+			if (BC_CONSUMPTION != newMeterage) {
+				BC_CONSUMPTION = newMeterage;
 				Serial.print("NEW_CONSUMPTION: ");
-				Serial.println(uint32_to_float(RAW_CONSUMPTION));
+				Serial.println(BC_CONSUMPTION);
 			}
 		}
 
-		SPI_STATE = SPI_STATE_START;
-		SPI.attachInterrupt();
+    attachSlaveInterrupt();
 	}
 
 }
