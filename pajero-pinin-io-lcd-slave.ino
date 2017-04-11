@@ -78,6 +78,17 @@
 // знак минуса
 #define D_NEGATIVE(value, bit) ((value >> bit & 1UL) << 23)
 
+// битовые маски сегментов
+#define CHAR_0 125
+#define CHAR_1 80
+#define CHAR_2 55
+#define CHAR_3 87
+#define CHAR_4 90
+#define CHAR_5 79
+#define CHAR_6 111
+#define CHAR_7 81
+#define CHAR_8 127
+#define CHAR_9 95
 
 uint32_t RAW_TIME;
 uint32_t RAW_TEMPERATURE;
@@ -106,16 +117,17 @@ void setup() {
 
 uint32_t bits_to_digit(uint32_t value) {
 	switch (value) {
-    case 125: return 0;
-    case 80: return 1;
-    case 55: return 2;
-    case 87: return 3;
-    case 90: return 4;
-    case 79: return 5;
-    case 111: return 6;
-    case 81: return 7;
-    case 127: return 8;
-		case 95: return 9;
+    case CHAR_0: return 0;
+    case CHAR_1: return 1;
+    case CHAR_2: return 2;
+    case CHAR_3: return 3;
+    case CHAR_4: return 4;
+    case CHAR_5: return 5;
+    case CHAR_6: return 6;
+    case CHAR_7: return 7;
+    case CHAR_8: return 8;
+		case CHAR_9: return 9;
+
 		// тут нужно возвращать некий флаг ошибки
 		// в ином случае пустые знакоместа 
 		// и всякие вещи типа "-" и "HI" будут
@@ -126,9 +138,10 @@ uint32_t bits_to_digit(uint32_t value) {
 
 float uint32_to_float(uint32_t value) {
 
-	uint32_t d1 = bits_to_digit(value & 0x7F);
-	uint32_t d2 = bits_to_digit((value >> 7) & 0x7F);
-	uint32_t d3 = bits_to_digit((value >> 14) & 0x7F);
+	uint32_t D0 = bits_to_digit(value & 0x7F);
+	uint32_t D1 = bits_to_digit(value >> 7 & 0x7F);
+	uint32_t D2 = bits_to_digit(value >> 14 & 0x7F);
+  uint32_t D3 = (value >> 21 & 1);
 
 	// нужна обработка ошибок / состояний
 	// bits_to_digit - может вернуть
@@ -141,14 +154,14 @@ float uint32_to_float(uint32_t value) {
 
 
 	float result = (
-		((value >> 21) & 1) * 1000 +
-		d3 * 100 +
-		d2 * 10 +
-		d1
+		D3 * 1000 +
+		D2 * 100 +
+		D1 * 10 +
+		D0
 	);
 //
-	if ((value >> 22) & 1) result /= 10;
-	if ((value >> 23) & 1) result = -result;
+	if (value >> 22 & 1) result /= 10;
+	if (value >> 23 & 1) result = -result;
 //
 	return result;
 }
