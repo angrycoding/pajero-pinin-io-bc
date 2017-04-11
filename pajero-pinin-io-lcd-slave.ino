@@ -104,8 +104,8 @@ volatile uint8_t SPI_METERAGE_UNIT;
 
 
 void setup() {
-	SPI_STATE = SPI_STATE_START;
-	Serial.begin(115200);
+  Serial.begin(115200);
+  SPI_STATE = SPI_STATE_START;
 	SPCR |= bit(SPE);
 	SPI.setBitOrder(LSBFIRST);
 	SPI.setDataMode(SPI_MODE3);
@@ -170,24 +170,20 @@ float uint32_to_float(uint32_t value) {
 ISR(SPI_STC_vect) {
 	uint8_t value = SPDR;
 	switch (SPI_STATE++) {
-
 		case 0: if (value != SPI_PACKET_START) SPI_STATE = SPI_STATE_START; break;
 		case 4: SPI_TEMPERATURE = D1_T(value, 0) | D1_TL(value, 1) | D1_BL(value, 2) | D_NEGATIVE(value, 3) | D1_TR(value, 4) | D1_C(value, 5) | D1_BR(value, 6) | D1_B(value, 7); break;
 		case 5: SPI_TEMPERATURE |= D0_T(value, 0) | D0_TL(value, 1) | D0_BL(value, 2) | D0_TR(value, 4) | D0_C(value, 5) | D0_BR(value, 6) | D0_B(value, 7); break;
 		case 10: if (value >> 6 != SPI_PACKET1_END) SPI_STATE = SPI_STATE_START; break;
-
 		case 11: if (value != SPI_PACKET_START) SPI_STATE = SPI_STATE_START; break;
 		case 18: SPI_METERAGE = D2_T(value, 4) | D2_TL(value, 5) | D2_BL(value, 6) | D3(value, 7); break;
 		case 19: SPI_METERAGE |= D2_TR(value, 0) | D2_C(value, 1) | D2_BR(value, 2) | D2_B(value, 3) | D1_T(value, 4) | D1_TL(value, 5) | D1_BL(value, 6); break;
 		case 20: SPI_METERAGE |= D1_TR(value, 0) | D1_C(value, 1) | D1_BR(value, 2) | D1_B(value, 3); break;
 		case 21: if (value >> 6 != SPI_PACKET2_END) SPI_STATE = SPI_STATE_START; break;
-
 		case 22: if (value != SPI_PACKET_START) SPI_STATE = SPI_STATE_START; break;
 		case 23: SPI_METERAGE |= D0_T(value, 0) | D0_TL(value, 1) | D0_BL(value, 2) | D0_TR(value, 4) | D0_C(value, 5) | D0_BR(value, 6) | D0_B(value, 7); break;
 		case 24: SPI_METERAGE_UNIT = value; break;
 		case 28: SPI_METERAGE |= D_FLOAT(value, 7); break;
 		case 32: if (value >> 6 != SPI_PACKET3_END) SPI_STATE = SPI_STATE_START; break;
-
 		case 33: if (value != SPI_PACKET_START) SPI_STATE = SPI_STATE_START; break;
 		case 36: SPI_TIME = D3(value, 1) | D2_B(value, 2) | D2_BL(value, 3) | D2_C(value, 6) | D2_TL(value, 7); break;
 		case 37: SPI_TIME |= D2_BR(value, 2) | D2_TR(value, 3) | D2_T(value, 7); break;
@@ -196,7 +192,6 @@ ISR(SPI_STC_vect) {
 		case 40: SPI_TIME |= D0_B(value, 2) | D0_BL(value, 3) | D0_C(value, 6) | D0_TL(value, 7); break;
 		case 41: SPI_TIME |= D0_BR(value, 2) | D0_TR(value, 3) | D0_T(value, 7); break;
 		case 43: if (value >> 6 != SPI_PACKET4_END) SPI_STATE = SPI_STATE_START; else SPI.detachInterrupt(); break;
-
 	}
 }
 
