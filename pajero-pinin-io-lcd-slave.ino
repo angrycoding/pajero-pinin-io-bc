@@ -102,11 +102,25 @@ uint32_t bits_to_digit(uint32_t value) {
 
 float uint32_to_float(uint32_t value) {
 
+	uint32_t d1 = bits_to_digit(value & 0x7F);
+	uint32_t d2 = bits_to_digit((value >> 7) & 0x7F);
+	uint32_t d3 = bits_to_digit((value >> 14) & 0x7F);
+
+	// нужна обработка ошибок / состояний
+	// bits_to_digit - может вернуть
+
+	// - пусто
+	// - неопределяемая хуйня
+
+	// также необходимо проверять / считать ошибкой что нибудь типа:
+	// пусто ЦИФРА пусто ЦИФРА, то есть пусто может быть только слева
+
+
 	float result = (
 		((value >> 21) & 1) * 1000 +
-		bits_to_digit((value >> 14) & 0x7F) * 100 +
-		bits_to_digit((value >> 7) & 0x7F) * 10 +
-		bits_to_digit(value & 0x7F)
+		d3 * 100 +
+		d2 * 10 +
+		d1
 	);
 
 	if ((value >> 22) & 1) result /= 10;
