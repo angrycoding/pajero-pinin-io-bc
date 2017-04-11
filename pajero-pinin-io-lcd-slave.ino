@@ -1,5 +1,18 @@
 #include <SPI.h>
 
+// признак начала пакета 
+#define PACKET_START 0x45
+// признак окончания первого пакета
+#define PACKET1_END 0b00
+// признак окончания второго пакета
+#define PACKET2_END 0b10
+// признак окончания третьего пакета
+#define PACKET3_END 0b01
+// признак окончания четвертого пакета
+#define PACKET4_END 0b11
+// признак успешно прочитанной посылки
+#define SPI_STATE_DONE 44
+
 // запас топлива, км
 #define FUEL_KM 0b00000010
 // запас топлива, миль
@@ -14,31 +27,6 @@
 #define CONSUMPTION_MPG 0b00001000
 // расход, л/100км
 #define CONSUMPTION_L100KM 0b01000100
-
-
-
-uint32_t RAW_TIME;
-uint32_t RAW_TEMPERATURE;
-uint32_t RAW_FUEL;
-uint32_t RAW_SPEED;
-uint32_t RAW_CONSUMPTION;
-
-volatile uint8_t OFFSET;
-volatile uint32_t SPI_TIME;
-volatile uint32_t SPI_METERAGE;
-volatile uint32_t SPI_TEMPERATURE;
-volatile uint8_t SPI_METERAGE_UNIT;
-
-
-void setup() {
-	OFFSET = 0;
-	Serial.begin(250000);
-	SPCR |= bit (SPE);
-	SPI.setBitOrder(LSBFIRST);
-	SPI.setDataMode(SPI_MODE3);
-	SPI.attachInterrupt();
-}
-
 
 
 #define T_D1(value, bit) ((value >> bit & 1) << 0)
@@ -68,6 +56,33 @@ void setup() {
 #define D4(value, bit) ((value >> bit & 1) << 21)
 #define FLOAT_D(value, bit) ((value >> bit & 1) << 22)
 #define NEGATIVE_D(value, bit) ((value >> bit & 1) << 23)
+
+
+
+uint32_t RAW_TIME;
+uint32_t RAW_TEMPERATURE;
+uint32_t RAW_FUEL;
+uint32_t RAW_SPEED;
+uint32_t RAW_CONSUMPTION;
+
+volatile uint8_t SPI_STATE;
+volatile uint32_t SPI_TIME;
+volatile uint32_t SPI_METERAGE;
+volatile uint32_t SPI_TEMPERATURE;
+volatile uint8_t SPI_METERAGE_UNIT;
+
+
+void setup() {
+	SPI_STATE = 0;
+	Serial.begin(250000);
+	SPCR |= bit (SPE);
+	SPI.setBitOrder(LSBFIRST);
+	SPI.setDataMode(SPI_MODE3);
+	SPI.attachInterrupt();
+}
+
+
+
 
 uint32_t bits_to_digit(uint32_t value) {
 	switch (value) {
@@ -102,33 +117,33 @@ float uint32_to_float(uint32_t value) {
 
 ISR(SPI_STC_vect) {
 	uint8_t value = SPDR;
-	switch (OFFSET++) {
+	switch (SPI_STATE++) {
 
-		case 0: if (value != 0x45) OFFSET = 0; break;
+		case 0: if (value != PACKET_START) SPI_STATE = 0; break;
 		case 4: SPI_TEMPERATURE = T_D2(value, 0) | TL_D2(value, 1) | BL_D2(value, 2) | NEGATIVE_D(value, 3) | TR_D2(value, 4) | C_D2(value, 5) | BR_D2(value, 6) | B_D2(value, 7); break;
 		case 5: SPI_TEMPERATURE |= T_D1(value, 0) | TL_D1(value, 1) | BL_D1(value, 2) | TR_D1(value, 4) | C_D1(value, 5) | BR_D1(value, 6) | B_D1(value, 7); break;
-		case 10: if (value >> 6 != 0b00) OFFSET = 0; break;
+		case 10: if (value >> 6 != PACKET1_END) SPI_STATE = 0; break;
 
-		case 11: if (value != 0x45) OFFSET = 0; break;
+		case 11: if (value != PACKET_START) SPI_STATE = 0; break;
 		case 18: SPI_METERAGE = T_D3(value, 4) | TL_D3(value, 5) | BL_D3(value, 6) | D4(value, 7); break;
 		case 19: SPI_METERAGE |= TR_D3(value, 0) | C_D3(value, 1) | BR_D3(value, 2) | B_D3(value, 3) | T_D2(value, 4) | TL_D2(value, 5) | BL_D2(value, 6); break;
 		case 20: SPI_METERAGE |= TR_D2(value, 0) | C_D2(value, 1) | BR_D2(value, 2) | B_D2(value, 3); break;
-		case 21: if (value >> 6 != 0b10) OFFSET = 0; break;
+		case 21: if (value >> 6 != PACKET2_END) SPI_STATE = 0; break;
 
-		case 22: if (value != 0x45) OFFSET = 0; break;
+		case 22: if (value != PACKET_START) SPI_STATE = 0; break;
 		case 23: SPI_METERAGE |= T_D1(value, 0) | TL_D1(value, 1) | BL_D1(value, 2) | TR_D1(value, 4) | C_D1(value, 5) | BR_D1(value, 6) | B_D1(value, 7); break;
 		case 24: SPI_METERAGE_UNIT = value; break;
 		case 28: SPI_METERAGE |= FLOAT_D(value, 7); break;
-		case 32: if (value >> 6 != 0b01) OFFSET = 0; break;
+		case 32: if (value >> 6 != PACKET3_END) SPI_STATE = 0; break;
 
-		case 33: if (value != 0x45) OFFSET = 0; break;
+		case 33: if (value != PACKET_START) SPI_STATE = 0; break;
 		case 36: SPI_TIME = D4(value, 1) | B_D3(value, 2) | BL_D3(value, 3) | C_D3(value, 6) | TL_D3(value, 7); break;
 		case 37: SPI_TIME |= BR_D3(value, 2) | TR_D3(value, 3) | T_D3(value, 7); break;
 		case 38: SPI_TIME |= B_D2(value, 2) | BL_D2(value, 3) | C_D2(value, 6) | TL_D2(value, 7); break;
 		case 39: SPI_TIME |= BR_D2(value, 2) | TR_D2(value, 3) | T_D2(value, 7); break;
 		case 40: SPI_TIME |= B_D1(value, 2) | BL_D1(value, 3) | C_D1(value, 6) | TL_D1(value, 7); break;
 		case 41: SPI_TIME |= BR_D1(value, 2) | TR_D1(value, 3) | T_D1(value, 7); break;
-		case 43: if (value >> 6 != 0b11) OFFSET = 0; else SPI.detachInterrupt(); break;
+		case 43: if (value >> 6 != PACKET4_END) SPI_STATE = 0; else SPI.detachInterrupt(); break;
 
 	}
 }
@@ -136,7 +151,7 @@ ISR(SPI_STC_vect) {
 
 void loop() {
 
-	if (OFFSET == 44) {
+	if (SPI_STATE == SPI_STATE_DONE) {
 
 		if (RAW_TIME != SPI_TIME) {
 			RAW_TIME = SPI_TIME;
@@ -178,7 +193,7 @@ void loop() {
 			}
 		}
 
-		OFFSET = 0;
+		SPI_STATE = 0;
 		SPI.attachInterrupt();
 	}
 
