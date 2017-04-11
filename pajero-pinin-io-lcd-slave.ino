@@ -30,53 +30,53 @@
 #define CONSUMPTION_L100KM 0b01000100
 
 // единицы - верхний сегмент
-#define D0_T(value, bit) ((value >> bit & 1) << 0)
+#define D0_T(value, bit) ((value >> bit & 1UL) << 0)
 // единицы - средний сегмент
-#define D0_C(value, bit) ((value >> bit & 1) << 1)
+#define D0_C(value, bit) ((value >> bit & 1UL) << 1)
 // единицы - нижний сегмент
-#define D0_B(value, bit) ((value >> bit & 1) << 2)
+#define D0_B(value, bit) ((value >> bit & 1UL) << 2)
 // единицы - верхний левый сегмент
-#define D0_TL(value, bit) ((value >> bit & 1) << 3)
+#define D0_TL(value, bit) ((value >> bit & 1UL) << 3)
 // единицы - верхний правый сегмент
-#define D0_TR(value, bit) ((value >> bit & 1) << 4)
+#define D0_TR(value, bit) ((value >> bit & 1UL) << 4)
 // единицы - нижний левый сегмент
-#define D0_BL(value, bit) ((value >> bit & 1) << 5)
+#define D0_BL(value, bit) ((value >> bit & 1UL) << 5)
 // единицы - нижний правый сегмент
-#define D0_BR(value, bit) ((value >> bit & 1) << 6)
+#define D0_BR(value, bit) ((value >> bit & 1UL) << 6)
 // десятки - верхний сегмент
-#define D1_T(value, bit) ((value >> bit & 1) << 7)
+#define D1_T(value, bit) ((value >> bit & 1UL) << 7)
 // десятки - средний сегмент
-#define D1_C(value, bit) ((value >> bit & 1) << 8)
+#define D1_C(value, bit) ((value >> bit & 1UL) << 8)
 // десятки - нижний сегмент
-#define D1_B(value, bit) ((value >> bit & 1) << 9)
+#define D1_B(value, bit) ((value >> bit & 1UL) << 9)
 // десятки - верхний левый сегмент
-#define D1_TL(value, bit) ((value >> bit & 1) << 10)
+#define D1_TL(value, bit) ((value >> bit & 1UL) << 10)
 // десятки - верхний правый сегмент
-#define D1_TR(value, bit) ((value >> bit & 1) << 11)
+#define D1_TR(value, bit) ((value >> bit & 1UL) << 11)
 // десятки - нижний левый сегмент
-#define D1_BL(value, bit) ((value >> bit & 1) << 12)
+#define D1_BL(value, bit) ((value >> bit & 1UL) << 12)
 // десятки - нижний правый сегмент
-#define D1_BR(value, bit) ((value >> bit & 1) << 13)
+#define D1_BR(value, bit) ((value >> bit & 1UL) << 13)
 // сотни - верхний сегмент
-#define D2_T(value, bit) ((value >> bit & 1) << 14)
+#define D2_T(value, bit) ((value >> bit & 1UL) << 14)
 // сотни - средний сегмент
-#define D2_C(value, bit) ((value >> bit & 1) << 15)
+#define D2_C(value, bit) ((value >> bit & 1UL) << 15)
 // сотни - нижний сегмент
-#define D2_B(value, bit) ((value >> bit & 1) << 16)
+#define D2_B(value, bit) ((value >> bit & 1UL) << 16)
 // сотни - верхний левый сегмент
-#define D2_TL(value, bit) ((value >> bit & 1) << 17)
+#define D2_TL(value, bit) ((value >> bit & 1UL) << 17)
 // сотни - верхний правый сегмент
-#define D2_TR(value, bit) ((value >> bit & 1) << 18)
+#define D2_TR(value, bit) ((value >> bit & 1UL) << 18)
 // сотни - нижний левый сегмент
-#define D2_BL(value, bit) ((value >> bit & 1) << 19)
+#define D2_BL(value, bit) ((value >> bit & 1UL) << 19)
 // сотни - нижний правый сегмент
-#define D2_BR(value, bit) ((value >> bit & 1) << 20)
+#define D2_BR(value, bit) ((value >> bit & 1UL) << 20)
 // тысячи - контроллируется одним сегментом
-#define D3(value, bit) ((value >> bit & 1) << 21)
+#define D3(value, bit) ((value >> bit & 1UL) << 21)
 // десятичный разделитель между десятками и единицами
-#define D_FLOAT(value, bit) ((value >> bit & 1) << 22)
+#define D_FLOAT(value, bit) ((value >> bit & 1UL) << 22)
 // знак минуса
-#define D_NEGATIVE(value, bit) ((value >> bit & 1) << 23)
+#define D_NEGATIVE(value, bit) ((value >> bit & 1UL) << 23)
 
 
 uint32_t RAW_TIME;
@@ -94,7 +94,7 @@ volatile uint8_t SPI_METERAGE_UNIT;
 
 void setup() {
 	SPI_STATE = SPI_STATE_START;
-	Serial.begin(250000);
+	Serial.begin(115200);
 	SPCR |= bit(SPE);
 	SPI.setBitOrder(LSBFIRST);
 	SPI.setDataMode(SPI_MODE3);
@@ -106,15 +106,15 @@ void setup() {
 
 uint32_t bits_to_digit(uint32_t value) {
 	switch (value) {
-		case 125: return 0;
-		case 80: return 1;
-		case 55: return 2;
-		case 87: return 3;
-		case 90: return 4;
-		case 79: return 5;
-		case 111: return 6;
-		case 81: return 7;
-		case 127: return 8;
+    case 125: return 0;
+    case 80: return 1;
+    case 55: return 2;
+    case 87: return 3;
+    case 90: return 4;
+    case 79: return 5;
+    case 111: return 6;
+    case 81: return 7;
+    case 127: return 8;
 		case 95: return 9;
 		// тут нужно возвращать некий флаг ошибки
 		// в ином случае пустые знакоместа 
@@ -146,10 +146,10 @@ float uint32_to_float(uint32_t value) {
 		d2 * 10 +
 		d1
 	);
-
+//
 	if ((value >> 22) & 1) result /= 10;
 	if ((value >> 23) & 1) result = -result;
-
+//
 	return result;
 }
 
