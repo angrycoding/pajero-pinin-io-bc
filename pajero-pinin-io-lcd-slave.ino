@@ -103,158 +103,158 @@ volatile uint32_t SPI_TEMPERATURE;
 volatile uint8_t SPI_METERAGE_UNIT;
 
 void attachSlaveInterrupt() {
-  SPI_TIME = 0;
-  SPI_METERAGE = 0;
-  SPI_TEMPERATURE = 0;
-  SPI_METERAGE_UNIT = 0;
-  SPI_STATE = SPI_STATE_START;
-  SPI.attachInterrupt();
+	SPI_TIME = 0;
+	SPI_METERAGE = 0;
+	SPI_TEMPERATURE = 0;
+	SPI_METERAGE_UNIT = 0;
+	SPI_STATE = SPI_STATE_START;
+	SPI.attachInterrupt();
 }
 
 void setup() {
-  Serial.begin(115200);
-  SPCR |= bit(SPE);
-  SPI.setBitOrder(LSBFIRST);
-  SPI.setDataMode(SPI_MODE3);
-  attachSlaveInterrupt();
+	Serial.begin(115200);
+	SPCR |= bit(SPE);
+	SPI.setBitOrder(LSBFIRST);
+	SPI.setDataMode(SPI_MODE3);
+	attachSlaveInterrupt();
 }
 
 void serialEvent() {
-  while (Serial.available()) {
-    Serial.println(Serial.read(), HEX);
-  }
+	while (Serial.available()) {
+		Serial.println(Serial.read(), HEX);
+	}
 }
 
 uint32_t bits_to_digit(uint32_t value) {
-  switch (value) {
-    case CHAR_0: return 0;
-    case CHAR_1: return 1;
-    case CHAR_2: return 2;
-    case CHAR_3: return 3;
-    case CHAR_4: return 4;
-    case CHAR_5: return 5;
-    case CHAR_6: return 6;
-    case CHAR_7: return 7;
-    case CHAR_8: return 8;
-    case CHAR_9: return 9;
+	switch (value) {
+		case CHAR_0: return 0;
+		case CHAR_1: return 1;
+		case CHAR_2: return 2;
+		case CHAR_3: return 3;
+		case CHAR_4: return 4;
+		case CHAR_5: return 5;
+		case CHAR_6: return 6;
+		case CHAR_7: return 7;
+		case CHAR_8: return 8;
+		case CHAR_9: return 9;
 
-    // тут нужно возвращать некий флаг ошибки
-    // в ином случае пустые знакоместа
-    // и всякие вещи типа "-" и "HI" будут
-    // принудительно приведены к нулю
-    default: return 0;
-  }
+		// тут нужно возвращать некий флаг ошибки
+		// в ином случае пустые знакоместа
+		// и всякие вещи типа "-" и "HI" будут
+		// принудительно приведены к нулю
+		default: return 0;
+	}
 }
 
 float uint32_to_float(uint32_t value) {
 
-  uint32_t D0 = bits_to_digit(value & 0x7F);
-  uint32_t D1 = bits_to_digit(value >> 7 & 0x7F);
-  uint32_t D2 = bits_to_digit(value >> 14 & 0x7F);
-  uint32_t D3 = (value >> 21 & 1);
+	uint32_t D0 = bits_to_digit(value & 0x7F);
+	uint32_t D1 = bits_to_digit(value >> 7 & 0x7F);
+	uint32_t D2 = bits_to_digit(value >> 14 & 0x7F);
+	uint32_t D3 = (value >> 21 & 1);
 
-  // нужна обработка ошибок / состояний
-  // bits_to_digit - может вернуть
+	// нужна обработка ошибок / состояний
+	// bits_to_digit - может вернуть
 
-  // - пусто
-  // - неопределяемая хуйня
+	// - пусто
+	// - неопределяемая хуйня
 
-  // также необходимо проверять / считать ошибкой что нибудь типа:
-  // пусто ЦИФРА пусто ЦИФРА, то есть пусто может быть только слева
+	// также необходимо проверять / считать ошибкой что нибудь типа:
+	// пусто ЦИФРА пусто ЦИФРА, то есть пусто может быть только слева
 
 
-  float result = (
-    D3 * 1000 +
-    D2 * 100 +
-    D1 * 10 +
-    D0
-  );
-//
-  if (value >> 22 & 1) result /= 10;
-  if (value >> 23 & 1) result = -result;
-//
-  return result;
+	float result = (
+		D3 * 1000 +
+		D2 * 100 +
+		D1 * 10 +
+		D0
+	);
+	//
+	if (value >> 22 & 1) result /= 10;
+	if (value >> 23 & 1) result = -result;
+	//
+	return result;
 }
 
 
 ISR(SPI_STC_vect) {
-  uint8_t value = SPDR;
-  switch (SPI_STATE++) {
-    case 0: if (value != SPI_PACKET_START) SPI_STATE = SPI_STATE_START; break;
-    case 4: SPI_TEMPERATURE = D1_T(value, 0) | D1_TL(value, 1) | D1_BL(value, 2) | D_NEGATIVE(value, 3) | D1_TR(value, 4) | D1_C(value, 5) | D1_BR(value, 6) | D1_B(value, 7); break;
-    case 5: SPI_TEMPERATURE |= D0_T(value, 0) | D0_TL(value, 1) | D0_BL(value, 2) | D0_TR(value, 4) | D0_C(value, 5) | D0_BR(value, 6) | D0_B(value, 7); break;
-    case 10: if (value >> 6 != SPI_PACKET1_END) SPI_STATE = SPI_STATE_START; break;
-    case 11: if (value != SPI_PACKET_START) SPI_STATE = SPI_STATE_START; break;
-    case 18: SPI_METERAGE = D2_T(value, 4) | D2_TL(value, 5) | D2_BL(value, 6) | D3(value, 7); break;
-    case 19: SPI_METERAGE |= D2_TR(value, 0) | D2_C(value, 1) | D2_BR(value, 2) | D2_B(value, 3) | D1_T(value, 4) | D1_TL(value, 5) | D1_BL(value, 6); break;
-    case 20: SPI_METERAGE |= D1_TR(value, 0) | D1_C(value, 1) | D1_BR(value, 2) | D1_B(value, 3); break;
-    case 21: if (value >> 6 != SPI_PACKET2_END) SPI_STATE = SPI_STATE_START; break;
-    case 22: if (value != SPI_PACKET_START) SPI_STATE = SPI_STATE_START; break;
-    case 23: SPI_METERAGE |= D0_T(value, 0) | D0_TL(value, 1) | D0_BL(value, 2) | D0_TR(value, 4) | D0_C(value, 5) | D0_BR(value, 6) | D0_B(value, 7); break;
-    case 24: SPI_METERAGE_UNIT = value; break;
-    case 28: SPI_METERAGE |= D_FLOAT(value, 7); break;
-    case 32: if (value >> 6 != SPI_PACKET3_END) SPI_STATE = SPI_STATE_START; break;
-    case 33: if (value != SPI_PACKET_START) SPI_STATE = SPI_STATE_START; break;
-    case 36: SPI_TIME = D3(value, 1) | D2_B(value, 2) | D2_BL(value, 3) | D2_C(value, 6) | D2_TL(value, 7); break;
-    case 37: SPI_TIME |= D2_BR(value, 2) | D2_TR(value, 3) | D2_T(value, 7); break;
-    case 38: SPI_TIME |= D1_B(value, 2) | D1_BL(value, 3) | D1_C(value, 6) | D1_TL(value, 7); break;
-    case 39: SPI_TIME |= D1_BR(value, 2) | D1_TR(value, 3) | D1_T(value, 7); break;
-    case 40: SPI_TIME |= D0_B(value, 2) | D0_BL(value, 3) | D0_C(value, 6) | D0_TL(value, 7); break;
-    case 41: SPI_TIME |= D0_BR(value, 2) | D0_TR(value, 3) | D0_T(value, 7); break;
-    case 43: if (value >> 6 != SPI_PACKET4_END) SPI_STATE = SPI_STATE_START; else SPI.detachInterrupt(); break;
-  }
+	uint8_t value = SPDR;
+	switch (SPI_STATE++) {
+		case 0: if (value != SPI_PACKET_START) SPI_STATE = SPI_STATE_START; break;
+		case 4: SPI_TEMPERATURE = D1_T(value, 0) | D1_TL(value, 1) | D1_BL(value, 2) | D_NEGATIVE(value, 3) | D1_TR(value, 4) | D1_C(value, 5) | D1_BR(value, 6) | D1_B(value, 7); break;
+		case 5: SPI_TEMPERATURE |= D0_T(value, 0) | D0_TL(value, 1) | D0_BL(value, 2) | D0_TR(value, 4) | D0_C(value, 5) | D0_BR(value, 6) | D0_B(value, 7); break;
+		case 10: if (value >> 6 != SPI_PACKET1_END) SPI_STATE = SPI_STATE_START; break;
+		case 11: if (value != SPI_PACKET_START) SPI_STATE = SPI_STATE_START; break;
+		case 18: SPI_METERAGE = D2_T(value, 4) | D2_TL(value, 5) | D2_BL(value, 6) | D3(value, 7); break;
+		case 19: SPI_METERAGE |= D2_TR(value, 0) | D2_C(value, 1) | D2_BR(value, 2) | D2_B(value, 3) | D1_T(value, 4) | D1_TL(value, 5) | D1_BL(value, 6); break;
+		case 20: SPI_METERAGE |= D1_TR(value, 0) | D1_C(value, 1) | D1_BR(value, 2) | D1_B(value, 3); break;
+		case 21: if (value >> 6 != SPI_PACKET2_END) SPI_STATE = SPI_STATE_START; break;
+		case 22: if (value != SPI_PACKET_START) SPI_STATE = SPI_STATE_START; break;
+		case 23: SPI_METERAGE |= D0_T(value, 0) | D0_TL(value, 1) | D0_BL(value, 2) | D0_TR(value, 4) | D0_C(value, 5) | D0_BR(value, 6) | D0_B(value, 7); break;
+		case 24: SPI_METERAGE_UNIT = value; break;
+		case 28: SPI_METERAGE |= D_FLOAT(value, 7); break;
+		case 32: if (value >> 6 != SPI_PACKET3_END) SPI_STATE = SPI_STATE_START; break;
+		case 33: if (value != SPI_PACKET_START) SPI_STATE = SPI_STATE_START; break;
+		case 36: SPI_TIME = D3(value, 1) | D2_B(value, 2) | D2_BL(value, 3) | D2_C(value, 6) | D2_TL(value, 7); break;
+		case 37: SPI_TIME |= D2_BR(value, 2) | D2_TR(value, 3) | D2_T(value, 7); break;
+		case 38: SPI_TIME |= D1_B(value, 2) | D1_BL(value, 3) | D1_C(value, 6) | D1_TL(value, 7); break;
+		case 39: SPI_TIME |= D1_BR(value, 2) | D1_TR(value, 3) | D1_T(value, 7); break;
+		case 40: SPI_TIME |= D0_B(value, 2) | D0_BL(value, 3) | D0_C(value, 6) | D0_TL(value, 7); break;
+		case 41: SPI_TIME |= D0_BR(value, 2) | D0_TR(value, 3) | D0_T(value, 7); break;
+		case 43: if (value >> 6 != SPI_PACKET4_END) SPI_STATE = SPI_STATE_START; else SPI.detachInterrupt(); break;
+	}
 }
 
 
 void loop() {
 
-  if (SPI_STATE == SPI_STATE_DONE) {
+	if (SPI_STATE == SPI_STATE_DONE) {
 
-    float newTime = uint32_to_float(SPI_TIME);
-    float newMeterage = uint32_to_float(SPI_METERAGE);
-    float newTemperature = uint32_to_float(SPI_TEMPERATURE);
+		float newTime = uint32_to_float(SPI_TIME);
+		float newMeterage = uint32_to_float(SPI_METERAGE);
+		float newTemperature = uint32_to_float(SPI_TEMPERATURE);
 
-    if (BC_TIME != newTime) {
-      BC_TIME = newTime;
-      Serial.print("NEW_TIME: ");
-      Serial.println(BC_TIME);
-    }
+		if (BC_TIME != newTime) {
+			BC_TIME = newTime;
+			Serial.print("NEW_TIME: ");
+			Serial.println(BC_TIME);
+		}
 
-    if (BC_TEMPERATURE != newTemperature) {
-      BC_TEMPERATURE = newTemperature;
-      Serial.print("NEW_TEMPERATURE: ");
-      Serial.println(BC_TEMPERATURE);
-    }
+		if (BC_TEMPERATURE != newTemperature) {
+			BC_TEMPERATURE = newTemperature;
+			Serial.print("NEW_TEMPERATURE: ");
+			Serial.println(BC_TEMPERATURE);
+		}
 
-    if (SPI_METERAGE_UNIT == FUEL_KM ||
-      SPI_METERAGE_UNIT == FUEL_MILES) {
-      if (BC_FUEL != newMeterage) {
-        BC_FUEL = newMeterage;
-        Serial.print("NEW_FUEL: ");
-        Serial.println(BC_FUEL);
-      }
-    }
+		if (SPI_METERAGE_UNIT == FUEL_KM ||
+			SPI_METERAGE_UNIT == FUEL_MILES) {
+			if (BC_FUEL != newMeterage) {
+				BC_FUEL = newMeterage;
+				Serial.print("NEW_FUEL: ");
+				Serial.println(BC_FUEL);
+			}
+		}
 
-    else if (SPI_METERAGE_UNIT == SPEED_KMH ||
-        SPI_METERAGE_UNIT == SPEED_MPH) {
-      if (BC_SPEED != newMeterage) {
-        BC_SPEED = newMeterage;
-        Serial.print("NEW_SPEED: ");
-        Serial.println(BC_SPEED);
-      }
-    }
+		else if (SPI_METERAGE_UNIT == SPEED_KMH ||
+			SPI_METERAGE_UNIT == SPEED_MPH) {
+			if (BC_SPEED != newMeterage) {
+				BC_SPEED = newMeterage;
+				Serial.print("NEW_SPEED: ");
+				Serial.println(BC_SPEED);
+			}
+		}
 
-    else if (SPI_METERAGE_UNIT == CONSUMPTION_KML ||
-        SPI_METERAGE_UNIT == CONSUMPTION_MPG ||
-        SPI_METERAGE_UNIT == CONSUMPTION_L100KM) {
-      if (BC_CONSUMPTION != newMeterage) {
-        BC_CONSUMPTION = newMeterage;
-        Serial.print("NEW_CONSUMPTION: ");
-        Serial.println(BC_CONSUMPTION);
-      }
-    }
+		else if (SPI_METERAGE_UNIT == CONSUMPTION_KML ||
+			SPI_METERAGE_UNIT == CONSUMPTION_MPG ||
+			SPI_METERAGE_UNIT == CONSUMPTION_L100KM) {
+			if (BC_CONSUMPTION != newMeterage) {
+				BC_CONSUMPTION = newMeterage;
+				Serial.print("NEW_CONSUMPTION: ");
+				Serial.println(BC_CONSUMPTION);
+			}
+		}
 
-    attachSlaveInterrupt();
-  }
+		attachSlaveInterrupt();
+	}
 
 }
