@@ -1,12 +1,9 @@
 #include "BC.h"
 
-
-
 void setup() {
 	Serial.begin(115200);
 	BC::init();
 }
-
 
 
 void loop() {
@@ -30,8 +27,6 @@ void loop() {
 
 		Serial.print("NEW_CONSUMPTION: ");
 		Serial.println(BC::CONSUMPTION);
-
-
 	}
 
 }
