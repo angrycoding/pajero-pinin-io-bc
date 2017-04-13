@@ -179,6 +179,35 @@ namespace BC_PRIVATE {
 		return result;
 	}
 
+	// обработчик SPI - прерывания
+	ISR(SPI_STC_vect) {
+		uint8_t value = SPDR;
+		switch (BC_STATE++) {
+			case 0: if (value != LC75874_X_START) BC_STATE = BC_STATE_START; break;
+			case 4: LCD_TEMPERATURE = LCD_10T(value, 0) | LCD_10TL(value, 1) | LCD_10BL(value, 2) | LCD_MINUS(value, 3) | LCD_10TR(value, 4) | LCD_10C(value, 5) | LCD_10BR(value, 6) | LCD_10B(value, 7); break;
+			case 5: LCD_TEMPERATURE |= LCD_1T(value, 0) | LCD_1TL(value, 1) | LCD_1BL(value, 2) | LCD_1TR(value, 4) | LCD_1C(value, 5) | LCD_1BR(value, 6) | LCD_1B(value, 7); break;
+			case 10: if (value >> 6 != LC75874_1_END) BC_STATE = BC_STATE_START; break;
+			case 11: if (value != LC75874_X_START) BC_STATE = BC_STATE_START; break;
+			case 18: LCD_METERAGE = LCD_100T(value, 4) | LCD_100TL(value, 5) | LCD_100BL(value, 6) | LCD_1000(value, 7); break;
+			case 19: LCD_METERAGE |= LCD_100TR(value, 0) | LCD_100C(value, 1) | LCD_100BR(value, 2) | LCD_100B(value, 3) | LCD_10T(value, 4) | LCD_10TL(value, 5) | LCD_10BL(value, 6); break;
+			case 20: LCD_METERAGE |= LCD_10TR(value, 0) | LCD_10C(value, 1) | LCD_10BR(value, 2) | LCD_10B(value, 3); break;
+			case 21: if (value >> 6 != LC75874_2_END) BC_STATE = BC_STATE_START; break;
+			case 22: if (value != LC75874_X_START) BC_STATE = BC_STATE_START; break;
+			case 23: LCD_METERAGE |= LCD_1T(value, 0) | LCD_1TL(value, 1) | LCD_1BL(value, 2) | LCD_1TR(value, 4) | LCD_1C(value, 5) | LCD_1BR(value, 6) | LCD_1B(value, 7); break;
+			case 24: LCD_METERAGE_UNIT = value; break;
+			case 28: LCD_METERAGE |= LCD_DOT(value, 7); break;
+			case 32: if (value >> 6 != LC75874_3_END) BC_STATE = BC_STATE_START; break;
+			case 33: if (value != LC75874_X_START) BC_STATE = BC_STATE_START; break;
+			case 36: LCD_TIME = LCD_1000(value, 1) | LCD_100B(value, 2) | LCD_100BL(value, 3) | LCD_100C(value, 6) | LCD_100TL(value, 7); break;
+			case 37: LCD_TIME |= LCD_100BR(value, 2) | LCD_100TR(value, 3) | LCD_100T(value, 7); break;
+			case 38: LCD_TIME |= LCD_10B(value, 2) | LCD_10BL(value, 3) | LCD_10C(value, 6) | LCD_10TL(value, 7); break;
+			case 39: LCD_TIME |= LCD_10BR(value, 2) | LCD_10TR(value, 3) | LCD_10T(value, 7); break;
+			case 40: LCD_TIME |= LCD_1B(value, 2) | LCD_1BL(value, 3) | LCD_1C(value, 6) | LCD_1TL(value, 7); break;
+			case 41: LCD_TIME |= LCD_1BR(value, 2) | LCD_1TR(value, 3) | LCD_1T(value, 7); break;
+			case 43: if (value >> 6 == LC75874_4_END) SPI.detachInterrupt(); else BC_STATE = BC_STATE_START; break;
+		}
+	}
+
 }
 
 namespace BC {
@@ -271,40 +300,14 @@ namespace BC {
 				CONSUMPTION_L100KM = newMeterage;
 				updated = true;
 			}
-			
+
 		}
 
 
 		return updated;
 	}
 
-	ISR(SPI_STC_vect) {
-		uint8_t value = SPDR;
-		switch (BC_STATE++) {
-			case 0: if (value != LC75874_X_START) BC_STATE = BC_STATE_START; break;
-			case 4: LCD_TEMPERATURE = LCD_10T(value, 0) | LCD_10TL(value, 1) | LCD_10BL(value, 2) | LCD_MINUS(value, 3) | LCD_10TR(value, 4) | LCD_10C(value, 5) | LCD_10BR(value, 6) | LCD_10B(value, 7); break;
-			case 5: LCD_TEMPERATURE |= LCD_1T(value, 0) | LCD_1TL(value, 1) | LCD_1BL(value, 2) | LCD_1TR(value, 4) | LCD_1C(value, 5) | LCD_1BR(value, 6) | LCD_1B(value, 7); break;
-			case 10: if (value >> 6 != LC75874_1_END) BC_STATE = BC_STATE_START; break;
-			case 11: if (value != LC75874_X_START) BC_STATE = BC_STATE_START; break;
-			case 18: LCD_METERAGE = LCD_100T(value, 4) | LCD_100TL(value, 5) | LCD_100BL(value, 6) | LCD_1000(value, 7); break;
-			case 19: LCD_METERAGE |= LCD_100TR(value, 0) | LCD_100C(value, 1) | LCD_100BR(value, 2) | LCD_100B(value, 3) | LCD_10T(value, 4) | LCD_10TL(value, 5) | LCD_10BL(value, 6); break;
-			case 20: LCD_METERAGE |= LCD_10TR(value, 0) | LCD_10C(value, 1) | LCD_10BR(value, 2) | LCD_10B(value, 3); break;
-			case 21: if (value >> 6 != LC75874_2_END) BC_STATE = BC_STATE_START; break;
-			case 22: if (value != LC75874_X_START) BC_STATE = BC_STATE_START; break;
-			case 23: LCD_METERAGE |= LCD_1T(value, 0) | LCD_1TL(value, 1) | LCD_1BL(value, 2) | LCD_1TR(value, 4) | LCD_1C(value, 5) | LCD_1BR(value, 6) | LCD_1B(value, 7); break;
-			case 24: LCD_METERAGE_UNIT = value; break;
-			case 28: LCD_METERAGE |= LCD_DOT(value, 7); break;
-			case 32: if (value >> 6 != LC75874_3_END) BC_STATE = BC_STATE_START; break;
-			case 33: if (value != LC75874_X_START) BC_STATE = BC_STATE_START; break;
-			case 36: LCD_TIME = LCD_1000(value, 1) | LCD_100B(value, 2) | LCD_100BL(value, 3) | LCD_100C(value, 6) | LCD_100TL(value, 7); break;
-			case 37: LCD_TIME |= LCD_100BR(value, 2) | LCD_100TR(value, 3) | LCD_100T(value, 7); break;
-			case 38: LCD_TIME |= LCD_10B(value, 2) | LCD_10BL(value, 3) | LCD_10C(value, 6) | LCD_10TL(value, 7); break;
-			case 39: LCD_TIME |= LCD_10BR(value, 2) | LCD_10TR(value, 3) | LCD_10T(value, 7); break;
-			case 40: LCD_TIME |= LCD_1B(value, 2) | LCD_1BL(value, 3) | LCD_1C(value, 6) | LCD_1TL(value, 7); break;
-			case 41: LCD_TIME |= LCD_1BR(value, 2) | LCD_1TR(value, 3) | LCD_1T(value, 7); break;
-			case 43: if (value >> 6 == LC75874_4_END) SPI.detachInterrupt(); else BC_STATE = BC_STATE_START; break;
-		}
-	}
+
 
 }
 
