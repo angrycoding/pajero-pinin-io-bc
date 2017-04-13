@@ -236,9 +236,11 @@ namespace BC {
 		}
 
 		if (LCD_METERAGE_UNIT == METERAGE_FUEL_KM || LCD_METERAGE_UNIT == METERAGE_FUEL_MILES) {
-			// проверка на валидность
-			if (LCD_METERAGE_UNIT == METERAGE_FUEL_MILES) newMeterage *= MILE_TO_KM;
-			// тут нужно округление до одного знака после запятой, иначе может скакать
+			
+			if (newMeterage != INFINITY && newMeterage != 0) {
+				if (LCD_METERAGE_UNIT == METERAGE_FUEL_MILES) newMeterage *= MILE_TO_KM;
+			}
+			
 			if (FUEL_KM != newMeterage) {
 				FUEL_KM = newMeterage;
 				updated = true;
@@ -246,9 +248,11 @@ namespace BC {
 		}
 
 		else if (LCD_METERAGE_UNIT == METERAGE_SPEED_KMH || LCD_METERAGE_UNIT == METERAGE_SPEED_MPH) {
-			// проверка на валидность
-			if (LCD_METERAGE_UNIT == METERAGE_SPEED_MPH) newMeterage *= MILE_TO_KM;
-			// тут нужно округление до одного знака после запятой, иначе может скакать
+			
+			if (newMeterage != INFINITY && newMeterage != 0) {
+				if (LCD_METERAGE_UNIT == METERAGE_SPEED_MPH) newMeterage *= MILE_TO_KM;
+			}
+
 			if (SPEED_KMH != newMeterage) {
 				SPEED_KMH = newMeterage;
 				updated = true;
@@ -256,14 +260,18 @@ namespace BC {
 		}
 
 		else if (LCD_METERAGE_UNIT == METERAGE_CONSUMPTION_L100KM || LCD_METERAGE_UNIT == METERAGE_CONSUMPTION_KML || LCD_METERAGE_UNIT == METERAGE_CONSUMPTION_MPG) {
-			// проверка на валидность
-			if (LCD_METERAGE_UNIT == METERAGE_CONSUMPTION_MPG) newMeterage = MPG_TO_L100KM / newMeterage;
-			else if (LCD_METERAGE_UNIT == METERAGE_CONSUMPTION_KML) newMeterage = 100 / newMeterage;
-			// тут нужно округление до одного знака после запятой, иначе может скакать
+			
+
+			if (newMeterage != INFINITY && newMeterage != 0) {
+				if (LCD_METERAGE_UNIT == METERAGE_CONSUMPTION_MPG) newMeterage = MPG_TO_L100KM / newMeterage;
+				else if (LCD_METERAGE_UNIT == METERAGE_CONSUMPTION_KML) newMeterage = 100 / newMeterage;
+			}
+
 			if (CONSUMPTION_L100KM != newMeterage) {
 				CONSUMPTION_L100KM = newMeterage;
 				updated = true;
 			}
+			
 		}
 
 
