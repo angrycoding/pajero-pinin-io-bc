@@ -14,24 +14,32 @@
 // признак окончания четвертого пакета
 #define LC75874_4_END 0b11
 
-#define SPI_STATE_START 0
-#define SPI_STATE_DONE 44
-#define SPI_STATE_IDLE 100
+// не принимаем данные от мастера
+#define BC_STATE_IDLE 100
+// ожидаем первого байта от мастера
+#define BC_STATE_START 0
+// успешно приняли данные от мастера
+#define BC_STATE_DONE 44
+
+// константы для перевода
+// миль и галлонов в километры и литры
+#define MILE_TO_KM 1.60934
+#define MPG_TO_L100KM 282.48163
 
 // запас топлива, км
-#define FUEL_KM 0b00000010
+#define METERAGE_FUEL_KM 0b00000010
 // запас топлива, миль
-#define FUEL_MILES 0b10000000
+#define METERAGE_FUEL_MILES 0b10000000
 // скорость, км/ч
-#define SPEED_KMH 0b00000011
+#define METERAGE_SPEED_KMH 0b00000011
 // скорость, миль/ч
-#define SPEED_MPH 0b00010000
+#define METERAGE_SPEED_MPH 0b00010000
 // расход, км/л
-#define CONSUMPTION_KML 0b01100000
+#define METERAGE_CONSUMPTION_KML 0b01100000
 // расход, миль/галлон
-#define CONSUMPTION_MPG 0b00001000
+#define METERAGE_CONSUMPTION_MPG 0b00001000
 // расход, л/100км
-#define CONSUMPTION_L100KM 0b01000100
+#define METERAGE_CONSUMPTION_L100KM 0b01000100
 
 // макросы для управления виртуальным LCD дисплеем,
 // каждый из макросов проставляет соответствующий бит в 32х - битное число
@@ -124,7 +132,7 @@
 
 namespace BC_PRIVATE {
 
-	static volatile uint8_t SPI_STATE;
+	static volatile uint8_t BC_STATE;
 	static volatile uint32_t LCD_TIME;
 	static volatile uint32_t LCD_METERAGE;
 	static volatile uint32_t LCD_TEMPERATURE;
@@ -179,33 +187,37 @@ namespace BC {
 
 
 	float TIME = INFINITY;
+	// внешняя температура
 	float TEMPERATURE = INFINITY;
-	float FUEL = INFINITY;
-	float SPEED = INFINITY;
-	float CONSUMPTION = INFINITY;
+	// запас топлива (км)
+	float FUEL_KM = INFINITY;
+	// средняя скорость (км/ч)
+	float SPEED_KMH = INFINITY;
+	// расход топлива (л/100км)
+	float CONSUMPTION_L100KM = INFINITY;
 
 	void init() {
 		SPCR |= bit(SPE);
 		SPI.setBitOrder(LSBFIRST);
 		SPI.setDataMode(SPI_MODE3);
-		SPI_STATE = SPI_STATE_IDLE;
+		BC_STATE = BC_STATE_IDLE;
 	}
 
 	bool update() {
 
-		if (SPI_STATE == SPI_STATE_IDLE) {
+		if (BC_STATE == BC_STATE_IDLE) {
 			LCD_TIME = 0;
 			LCD_METERAGE = 0;
 			LCD_TEMPERATURE = 0;
 			LCD_METERAGE_UNIT = 0;
-			SPI_STATE = SPI_STATE_START;
+			BC_STATE = BC_STATE_START;
 			SPI.attachInterrupt();
 			return false;
 		}
 
 
-		if (SPI_STATE != SPI_STATE_DONE) return false;
-		SPI_STATE = SPI_STATE_IDLE;
+		if (BC_STATE != BC_STATE_DONE) return false;
+		BC_STATE = BC_STATE_IDLE;
 
 
 		bool updated = false;
@@ -223,27 +235,33 @@ namespace BC {
 			updated = true;
 		}
 
-		if (LCD_METERAGE_UNIT == FUEL_KM ||
-			LCD_METERAGE_UNIT == FUEL_MILES) {
-			if (FUEL != newMeterage) {
-				FUEL = newMeterage;
+		if (LCD_METERAGE_UNIT == METERAGE_FUEL_KM || LCD_METERAGE_UNIT == METERAGE_FUEL_MILES) {
+			// проверка на валидность
+			if (LCD_METERAGE_UNIT == METERAGE_FUEL_MILES) newMeterage *= MILE_TO_KM;
+			// тут нужно округление до одного знака после запятой, иначе может скакать
+			if (FUEL_KM != newMeterage) {
+				FUEL_KM = newMeterage;
 				updated = true;
 			}
 		}
 
-		else if (LCD_METERAGE_UNIT == SPEED_KMH ||
-			LCD_METERAGE_UNIT == SPEED_MPH) {
-			if (SPEED != newMeterage) {
-				SPEED = newMeterage;
+		else if (LCD_METERAGE_UNIT == METERAGE_SPEED_KMH || LCD_METERAGE_UNIT == METERAGE_SPEED_MPH) {
+			// проверка на валидность
+			if (LCD_METERAGE_UNIT == METERAGE_SPEED_MPH) newMeterage *= MILE_TO_KM;
+			// тут нужно округление до одного знака после запятой, иначе может скакать
+			if (SPEED_KMH != newMeterage) {
+				SPEED_KMH = newMeterage;
 				updated = true;
 			}
 		}
 
-		else if (LCD_METERAGE_UNIT == CONSUMPTION_KML ||
-			LCD_METERAGE_UNIT == CONSUMPTION_MPG ||
-			LCD_METERAGE_UNIT == CONSUMPTION_L100KM) {
-			if (CONSUMPTION != newMeterage) {
-				CONSUMPTION = newMeterage;
+		else if (LCD_METERAGE_UNIT == METERAGE_CONSUMPTION_L100KM || LCD_METERAGE_UNIT == METERAGE_CONSUMPTION_KML || LCD_METERAGE_UNIT == METERAGE_CONSUMPTION_MPG) {
+			// проверка на валидность
+			if (LCD_METERAGE_UNIT == METERAGE_CONSUMPTION_MPG) newMeterage = MPG_TO_L100KM / newMeterage;
+			else if (LCD_METERAGE_UNIT == METERAGE_CONSUMPTION_KML) newMeterage = 100 / newMeterage;
+			// тут нужно округление до одного знака после запятой, иначе может скакать
+			if (CONSUMPTION_L100KM != newMeterage) {
+				CONSUMPTION_L100KM = newMeterage;
 				updated = true;
 			}
 		}
@@ -254,29 +272,29 @@ namespace BC {
 
 	ISR(SPI_STC_vect) {
 		uint8_t value = SPDR;
-		switch (SPI_STATE++) {
-			case 0: if (value != LC75874_X_START) SPI_STATE = SPI_STATE_START; break;
+		switch (BC_STATE++) {
+			case 0: if (value != LC75874_X_START) BC_STATE = BC_STATE_START; break;
 			case 4: LCD_TEMPERATURE = LCD_10T(value, 0) | LCD_10TL(value, 1) | LCD_10BL(value, 2) | LCD_MINUS(value, 3) | LCD_10TR(value, 4) | LCD_10C(value, 5) | LCD_10BR(value, 6) | LCD_10B(value, 7); break;
 			case 5: LCD_TEMPERATURE |= LCD_1T(value, 0) | LCD_1TL(value, 1) | LCD_1BL(value, 2) | LCD_1TR(value, 4) | LCD_1C(value, 5) | LCD_1BR(value, 6) | LCD_1B(value, 7); break;
-			case 10: if (value >> 6 != LC75874_1_END) SPI_STATE = SPI_STATE_START; break;
-			case 11: if (value != LC75874_X_START) SPI_STATE = SPI_STATE_START; break;
+			case 10: if (value >> 6 != LC75874_1_END) BC_STATE = BC_STATE_START; break;
+			case 11: if (value != LC75874_X_START) BC_STATE = BC_STATE_START; break;
 			case 18: LCD_METERAGE = LCD_100T(value, 4) | LCD_100TL(value, 5) | LCD_100BL(value, 6) | LCD_1000(value, 7); break;
 			case 19: LCD_METERAGE |= LCD_100TR(value, 0) | LCD_100C(value, 1) | LCD_100BR(value, 2) | LCD_100B(value, 3) | LCD_10T(value, 4) | LCD_10TL(value, 5) | LCD_10BL(value, 6); break;
 			case 20: LCD_METERAGE |= LCD_10TR(value, 0) | LCD_10C(value, 1) | LCD_10BR(value, 2) | LCD_10B(value, 3); break;
-			case 21: if (value >> 6 != LC75874_2_END) SPI_STATE = SPI_STATE_START; break;
-			case 22: if (value != LC75874_X_START) SPI_STATE = SPI_STATE_START; break;
+			case 21: if (value >> 6 != LC75874_2_END) BC_STATE = BC_STATE_START; break;
+			case 22: if (value != LC75874_X_START) BC_STATE = BC_STATE_START; break;
 			case 23: LCD_METERAGE |= LCD_1T(value, 0) | LCD_1TL(value, 1) | LCD_1BL(value, 2) | LCD_1TR(value, 4) | LCD_1C(value, 5) | LCD_1BR(value, 6) | LCD_1B(value, 7); break;
 			case 24: LCD_METERAGE_UNIT = value; break;
 			case 28: LCD_METERAGE |= LCD_DOT(value, 7); break;
-			case 32: if (value >> 6 != LC75874_3_END) SPI_STATE = SPI_STATE_START; break;
-			case 33: if (value != LC75874_X_START) SPI_STATE = SPI_STATE_START; break;
+			case 32: if (value >> 6 != LC75874_3_END) BC_STATE = BC_STATE_START; break;
+			case 33: if (value != LC75874_X_START) BC_STATE = BC_STATE_START; break;
 			case 36: LCD_TIME = LCD_1000(value, 1) | LCD_100B(value, 2) | LCD_100BL(value, 3) | LCD_100C(value, 6) | LCD_100TL(value, 7); break;
 			case 37: LCD_TIME |= LCD_100BR(value, 2) | LCD_100TR(value, 3) | LCD_100T(value, 7); break;
 			case 38: LCD_TIME |= LCD_10B(value, 2) | LCD_10BL(value, 3) | LCD_10C(value, 6) | LCD_10TL(value, 7); break;
 			case 39: LCD_TIME |= LCD_10BR(value, 2) | LCD_10TR(value, 3) | LCD_10T(value, 7); break;
 			case 40: LCD_TIME |= LCD_1B(value, 2) | LCD_1BL(value, 3) | LCD_1C(value, 6) | LCD_1TL(value, 7); break;
 			case 41: LCD_TIME |= LCD_1BR(value, 2) | LCD_1TR(value, 3) | LCD_1T(value, 7); break;
-			case 43: if (value >> 6 == LC75874_4_END) SPI.detachInterrupt(); else SPI_STATE = SPI_STATE_START; break;
+			case 43: if (value >> 6 == LC75874_4_END) SPI.detachInterrupt(); else BC_STATE = BC_STATE_START; break;
 		}
 	}
 
