@@ -11,19 +11,19 @@ void loop() {
 	if (BC::update()) {
 
 		Serial.print("TIME: ");
-		Serial.println(BC::TIME);
+		Serial.println(BC::getTime());
 
 		Serial.print("TEMPERATURE: ");
-		Serial.println(BC::TEMPERATURE);
+		Serial.println(BC::getTemperature());
 
 		Serial.print("FUEL_KM: ");
-		Serial.println(BC::FUEL_KM);
+		Serial.println(BC::getFuel());
 
 		Serial.print("SPEED_KMH: ");
-		Serial.println(BC::SPEED_KMH);
+		Serial.println(BC::getSpeed());
 
 		Serial.print("CONSUMPTION_L100KM: ");
-		Serial.println(BC::CONSUMPTION_L100KM);
+		Serial.println(BC::getConsumption());
 	}
 
 }
