@@ -265,11 +265,13 @@ namespace BC {
 		}
 
 		if (LCD_METERAGE_UNIT == METERAGE_FUEL_KM || LCD_METERAGE_UNIT == METERAGE_FUEL_MILES) {
-			
+
 			if (newMeterage != INFINITY && newMeterage != 0) {
-				if (LCD_METERAGE_UNIT == METERAGE_FUEL_MILES) newMeterage *= MILE_TO_KM;
+				if (LCD_METERAGE_UNIT == METERAGE_FUEL_MILES) {
+					newMeterage = ceil(newMeterage * MILE_TO_KM);
+				}
 			}
-			
+
 			if (FUEL_KM != newMeterage) {
 				FUEL_KM = newMeterage;
 				updated = true;
@@ -277,9 +279,11 @@ namespace BC {
 		}
 
 		else if (LCD_METERAGE_UNIT == METERAGE_SPEED_KMH || LCD_METERAGE_UNIT == METERAGE_SPEED_MPH) {
-			
+
 			if (newMeterage != INFINITY && newMeterage != 0) {
-				if (LCD_METERAGE_UNIT == METERAGE_SPEED_MPH) newMeterage *= MILE_TO_KM;
+				if (LCD_METERAGE_UNIT == METERAGE_SPEED_MPH) {
+					newMeterage = ceil(newMeterage * MILE_TO_KM);
+				}
 			}
 
 			if (SPEED_KMH != newMeterage) {
@@ -289,11 +293,11 @@ namespace BC {
 		}
 
 		else if (LCD_METERAGE_UNIT == METERAGE_CONSUMPTION_L100KM || LCD_METERAGE_UNIT == METERAGE_CONSUMPTION_KML || LCD_METERAGE_UNIT == METERAGE_CONSUMPTION_MPG) {
-			
+
 
 			if (newMeterage != INFINITY && newMeterage != 0) {
-				if (LCD_METERAGE_UNIT == METERAGE_CONSUMPTION_MPG) newMeterage = MPG_TO_L100KM / newMeterage;
-				else if (LCD_METERAGE_UNIT == METERAGE_CONSUMPTION_KML) newMeterage = 100 / newMeterage;
+				if (LCD_METERAGE_UNIT == METERAGE_CONSUMPTION_MPG) newMeterage = round(10 * (MPG_TO_L100KM / newMeterage)) / 10;
+				else if (LCD_METERAGE_UNIT == METERAGE_CONSUMPTION_KML) newMeterage = round(10 * (100 / newMeterage)) / 10;
 			}
 
 			if (CONSUMPTION_L100KM != newMeterage) {
