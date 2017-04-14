@@ -13,9 +13,8 @@ namespace RPC_PRIVATE {
 
 namespace RPC {
 
-	using namespace RPC_PRIVATE;
-
 	bool process() {
+		using namespace RPC_PRIVATE;
 		byte size;
 		while (size = Serial.available()) switch (position++) {
 			case 0: if (Serial.read() != PACKET_B1) position = 0; break;
@@ -28,6 +27,7 @@ namespace RPC {
 	}
 
 	uint8_t getCommand() {
+		using namespace RPC_PRIVATE;
 		return command;
 	}
 

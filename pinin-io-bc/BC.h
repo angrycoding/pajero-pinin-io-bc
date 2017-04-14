@@ -233,9 +233,10 @@ namespace BC_PRIVATE {
 
 namespace BC {
 
-	using namespace BC_PRIVATE;
-
 	void init() {
+
+		using namespace BC_PRIVATE;
+
 		SPCR |= bit(SPE);
 		SPI.setBitOrder(LSBFIRST);
 		SPI.setDataMode(SPI_MODE3);
@@ -243,6 +244,8 @@ namespace BC {
 	}
 
 	bool update() {
+
+		using namespace BC_PRIVATE;
 
 		if (BC_STATE == BC_STATE_IDLE) {
 			LCD_TIME = 0;
@@ -322,22 +325,27 @@ namespace BC {
 	}
 
 	float getTime() {
+		using namespace BC_PRIVATE;
 		return TIME;
 	}
 
 	float getTemperature() {
+		using namespace BC_PRIVATE;
 		return TEMPERATURE;
 	}
 
 	float getFuel() {
+		using namespace BC_PRIVATE;
 		return FUEL_KM;
 	}
 
 	float getSpeed() {
+		using namespace BC_PRIVATE;
 		return SPEED_KMH;
 	}
 
 	float getConsumption() {
+		using namespace BC_PRIVATE;
 		return CONSUMPTION_L100KM;
 	}
 
