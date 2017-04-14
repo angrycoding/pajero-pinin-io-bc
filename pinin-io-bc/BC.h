@@ -143,6 +143,12 @@
 
 namespace BC_PRIVATE {
 
+	// сбросить среднюю скорость при следующем переключении режима
+	bool DO_RESET_SPEED = false;
+	// сбросить расход топлива при следующем переключении режима
+	bool DO_RESET_CONSUMPTION = false;
+
+	// текущее время
 	float TIME = INFINITY;
 	// внешняя температура
 	float TEMPERATURE = INFINITY;
@@ -320,6 +326,16 @@ namespace BC {
 
 
 		return updated;
+	}
+
+	void resetSpeed() {
+		using namespace BC_PRIVATE;
+		DO_RESET_SPEED = true;
+	}
+
+	void resetConsumption() {
+		using namespace BC_PRIVATE;
+		DO_RESET_CONSUMPTION = true;
 	}
 
 	float getTime() {
