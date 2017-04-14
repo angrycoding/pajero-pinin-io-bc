@@ -1,10 +1,17 @@
 #include "BC.h"
+#include "RPC.h"
 
 void setup() {
 	Serial.begin(115200);
 	BC::init();
 }
 
+void serialEvent() {
+	if (RPC::process()) {
+		Serial.print("RECEIVED_COMMAND: ");
+		Serial.println(RPC::getCommand());
+	}
+}
 
 void loop() {
 
