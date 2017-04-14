@@ -132,11 +132,62 @@
 
 namespace BC_PRIVATE {
 
-	static volatile uint8_t BC_STATE;
-	static volatile uint32_t LCD_TIME;
-	static volatile uint32_t LCD_METERAGE;
-	static volatile uint32_t LCD_TEMPERATURE;
-	static volatile uint8_t LCD_METERAGE_UNIT;
+	float TIME = INFINITY;
+	// внешняя температура
+	float TEMPERATURE = INFINITY;
+	// запас топлива (км)
+	float FUEL_KM = INFINITY;
+	// средняя скорость (км/ч)
+	float SPEED_KMH = INFINITY;
+	// расход топлива (л/100км)
+	float CONSUMPTION_L100KM = INFINITY;
+
+	volatile uint8_t BC_STATE;
+	volatile uint32_t LCD_TIME;
+	volatile uint32_t LCD_METERAGE;
+	volatile uint32_t LCD_TEMPERATURE;
+	volatile uint8_t LCD_METERAGE_UNIT;
+
+	// конвертирует 7 - битную маску сегмента полученную из 32х - битного числа
+	// описывающего состояние виртуального LCD - дисплея в отображаемое значение
+	uint32_t LCD_getDigit(uint32_t value) {
+		switch (value) {
+			case LCD_CHAR_0: return 0;
+			case LCD_CHAR_1: return 1;
+			case LCD_CHAR_2: return 2;
+			case LCD_CHAR_3: return 3;
+			case LCD_CHAR_4: return 4;
+			case LCD_CHAR_5: return 5;
+			case LCD_CHAR_6: return 6;
+			case LCD_CHAR_7: return 7;
+			case LCD_CHAR_8: return 8;
+			case LCD_CHAR_9: return 9;
+			case 0: return LCD_CHAR_SPACE;
+			default: return LCD_CHAR_UNKNOWN;
+		}
+	}
+
+	// конвертирует 32х - битное число описывающее состояние
+	// виртуального LCD - дисплея в отображаемое значение
+	float LCD_getValue(uint32_t value) {
+		bool isFloat = (value >> 22 & 1);
+		bool isNegative = (value >> 23 & 1);
+		uint32_t D0 = LCD_getDigit(value & 0x7F);
+		if (D0 == LCD_CHAR_UNKNOWN || D0 == LCD_CHAR_SPACE) return INFINITY;
+		uint32_t D1 = LCD_getDigit(value >> 7 & 0x7F);
+		if (D1 == LCD_CHAR_UNKNOWN || (D1 == LCD_CHAR_SPACE ? isFloat : D0 == LCD_CHAR_SPACE)) return INFINITY;
+		uint32_t D2 = LCD_getDigit(value >> 14 & 0x7F);
+		if (D2 == LCD_CHAR_UNKNOWN || (D2 != LCD_CHAR_SPACE && D1 == LCD_CHAR_SPACE)) return INFINITY;
+		uint32_t D3 = (value >> 21 & 1);
+		if (D3 && D2 == LCD_CHAR_SPACE) return INFINITY;
+		float result = (D3 * 1000);
+		if (D2 != LCD_CHAR_SPACE) result += D2 * 100;
+		if (D1 != LCD_CHAR_SPACE) result += D1 * 10;
+		if (D0 != LCD_CHAR_SPACE) result += D0;
+		if (isFloat) result /= 10;
+		if (isNegative) result = -result;
+		return result;
+	}
 
 	// обработчик SPI - прерывания
 	ISR(SPI_STC_vect) {
@@ -169,178 +220,116 @@ namespace BC_PRIVATE {
 
 }
 
-class BC {
+namespace BC {
 
-	private:
+	using namespace BC_PRIVATE;
 
-		static float TIME;
-		// внешняя температура
-		static float TEMPERATURE;
-		// запас топлива (км)
-		static float FUEL_KM;
-		// средняя скорость (км/ч)
-		static float SPEED_KMH;
-		// расход топлива (л/100км)
-		static float CONSUMPTION_L100KM;
+	void init() {
+		SPCR |= bit(SPE);
+		SPI.setBitOrder(LSBFIRST);
+		SPI.setDataMode(SPI_MODE3);
+		BC_STATE = BC_STATE_IDLE;
+	}
 
-		// конвертирует 7 - битную маску сегмента полученную из 32х - битного числа
-		// описывающего состояние виртуального LCD - дисплея в отображаемое значение
-		static uint32_t LCD_getDigit(uint32_t value) {
-			switch (value) {
-				case LCD_CHAR_0: return 0;
-				case LCD_CHAR_1: return 1;
-				case LCD_CHAR_2: return 2;
-				case LCD_CHAR_3: return 3;
-				case LCD_CHAR_4: return 4;
-				case LCD_CHAR_5: return 5;
-				case LCD_CHAR_6: return 6;
-				case LCD_CHAR_7: return 7;
-				case LCD_CHAR_8: return 8;
-				case LCD_CHAR_9: return 9;
-				case 0: return LCD_CHAR_SPACE;
-				default: return LCD_CHAR_UNKNOWN;
+	bool update() {
+
+		if (BC_STATE == BC_STATE_IDLE) {
+			LCD_TIME = 0;
+			LCD_METERAGE = 0;
+			LCD_TEMPERATURE = 0;
+			LCD_METERAGE_UNIT = 0;
+			BC_STATE = BC_STATE_START;
+			SPI.attachInterrupt();
+			return false;
+		}
+
+
+		if (BC_STATE != BC_STATE_DONE) return false;
+		BC_STATE = BC_STATE_IDLE;
+
+
+		bool updated = false;
+		float newTime = LCD_getValue(LCD_TIME);
+		float newMeterage = LCD_getValue(LCD_METERAGE);
+		float newTemperature = LCD_getValue(LCD_TEMPERATURE);
+
+		if (TIME != newTime) {
+			TIME = newTime;
+			updated = true;
+		}
+
+		if (TEMPERATURE != newTemperature) {
+			TEMPERATURE = newTemperature;
+			updated = true;
+		}
+
+		if (LCD_METERAGE_UNIT == METERAGE_FUEL_KM || LCD_METERAGE_UNIT == METERAGE_FUEL_MILES) {
+
+			if (newMeterage != INFINITY && newMeterage != 0) {
+				if (LCD_METERAGE_UNIT == METERAGE_FUEL_MILES) {
+					newMeterage = ceil(newMeterage * MILE_TO_KM);
+				}
+			}
+
+			if (FUEL_KM != newMeterage) {
+				FUEL_KM = newMeterage;
+				updated = true;
 			}
 		}
 
-		// конвертирует 32х - битное число описывающее состояние
-		// виртуального LCD - дисплея в отображаемое значение
-		static float LCD_getValue(uint32_t value) {
-			bool isFloat = (value >> 22 & 1);
-			bool isNegative = (value >> 23 & 1);
-			uint32_t D0 = LCD_getDigit(value & 0x7F);
-			if (D0 == LCD_CHAR_UNKNOWN || D0 == LCD_CHAR_SPACE) return INFINITY;
-			uint32_t D1 = LCD_getDigit(value >> 7 & 0x7F);
-			if (D1 == LCD_CHAR_UNKNOWN || (D1 == LCD_CHAR_SPACE ? isFloat : D0 == LCD_CHAR_SPACE)) return INFINITY;
-			uint32_t D2 = LCD_getDigit(value >> 14 & 0x7F);
-			if (D2 == LCD_CHAR_UNKNOWN || (D2 != LCD_CHAR_SPACE && D1 == LCD_CHAR_SPACE)) return INFINITY;
-			uint32_t D3 = (value >> 21 & 1);
-			if (D3 && D2 == LCD_CHAR_SPACE) return INFINITY;
-			float result = (D3 * 1000);
-			if (D2 != LCD_CHAR_SPACE) result += D2 * 100;
-			if (D1 != LCD_CHAR_SPACE) result += D1 * 10;
-			if (D0 != LCD_CHAR_SPACE) result += D0;
-			if (isFloat) result /= 10;
-			if (isNegative) result = -result;
-			return result;
-		}
+		else if (LCD_METERAGE_UNIT == METERAGE_SPEED_KMH || LCD_METERAGE_UNIT == METERAGE_SPEED_MPH) {
 
-	public:
-
-		static void init() {
-			using namespace BC_PRIVATE;
-			SPCR |= bit(SPE);
-			SPI.setBitOrder(LSBFIRST);
-			SPI.setDataMode(SPI_MODE3);
-			BC_STATE = BC_STATE_IDLE;
-		}
-
-		static bool update() {
-
-			using namespace BC_PRIVATE;
-
-			if (BC_STATE == BC_STATE_IDLE) {
-				LCD_TIME = 0;
-				LCD_METERAGE = 0;
-				LCD_TEMPERATURE = 0;
-				LCD_METERAGE_UNIT = 0;
-				BC_STATE = BC_STATE_START;
-				SPI.attachInterrupt();
-				return false;
+			if (newMeterage != INFINITY && newMeterage != 0) {
+				if (LCD_METERAGE_UNIT == METERAGE_SPEED_MPH) {
+					newMeterage = ceil(newMeterage * MILE_TO_KM);
+				}
 			}
 
+			if (SPEED_KMH != newMeterage) {
+				SPEED_KMH = newMeterage;
+				updated = true;
+			}
+		}
 
-			if (BC_STATE != BC_STATE_DONE) return false;
-			BC_STATE = BC_STATE_IDLE;
+		else if (LCD_METERAGE_UNIT == METERAGE_CONSUMPTION_L100KM || LCD_METERAGE_UNIT == METERAGE_CONSUMPTION_KML || LCD_METERAGE_UNIT == METERAGE_CONSUMPTION_MPG) {
 
 
-			bool updated = false;
-			float newTime = LCD_getValue(LCD_TIME);
-			float newMeterage = LCD_getValue(LCD_METERAGE);
-			float newTemperature = LCD_getValue(LCD_TEMPERATURE);
+			if (newMeterage != INFINITY && newMeterage != 0) {
+				if (LCD_METERAGE_UNIT == METERAGE_CONSUMPTION_MPG) newMeterage = round(10 * (MPG_TO_L100KM / newMeterage)) / 10;
+				else if (LCD_METERAGE_UNIT == METERAGE_CONSUMPTION_KML) newMeterage = round(10 * (100 / newMeterage)) / 10;
+			}
 
-			if (TIME != newTime) {
-				TIME = newTime;
+			if (CONSUMPTION_L100KM != newMeterage) {
+				CONSUMPTION_L100KM = newMeterage;
 				updated = true;
 			}
 
-			if (TEMPERATURE != newTemperature) {
-				TEMPERATURE = newTemperature;
-				updated = true;
-			}
-
-			if (LCD_METERAGE_UNIT == METERAGE_FUEL_KM || LCD_METERAGE_UNIT == METERAGE_FUEL_MILES) {
-
-				if (newMeterage != INFINITY && newMeterage != 0) {
-					if (LCD_METERAGE_UNIT == METERAGE_FUEL_MILES) {
-						newMeterage = ceil(newMeterage * MILE_TO_KM);
-					}
-				}
-
-				if (FUEL_KM != newMeterage) {
-					FUEL_KM = newMeterage;
-					updated = true;
-				}
-			}
-
-			else if (LCD_METERAGE_UNIT == METERAGE_SPEED_KMH || LCD_METERAGE_UNIT == METERAGE_SPEED_MPH) {
-
-				if (newMeterage != INFINITY && newMeterage != 0) {
-					if (LCD_METERAGE_UNIT == METERAGE_SPEED_MPH) {
-						newMeterage = ceil(newMeterage * MILE_TO_KM);
-					}
-				}
-
-				if (SPEED_KMH != newMeterage) {
-					SPEED_KMH = newMeterage;
-					updated = true;
-				}
-			}
-
-			else if (LCD_METERAGE_UNIT == METERAGE_CONSUMPTION_L100KM || LCD_METERAGE_UNIT == METERAGE_CONSUMPTION_KML || LCD_METERAGE_UNIT == METERAGE_CONSUMPTION_MPG) {
-
-
-				if (newMeterage != INFINITY && newMeterage != 0) {
-					if (LCD_METERAGE_UNIT == METERAGE_CONSUMPTION_MPG) newMeterage = round(10 * (MPG_TO_L100KM / newMeterage)) / 10;
-					else if (LCD_METERAGE_UNIT == METERAGE_CONSUMPTION_KML) newMeterage = round(10 * (100 / newMeterage)) / 10;
-				}
-
-				if (CONSUMPTION_L100KM != newMeterage) {
-					CONSUMPTION_L100KM = newMeterage;
-					updated = true;
-				}
-
-			}
-
-
-			return updated;
 		}
 
-		static float getTime() {
-			return TIME;
-		}
 
-		static float getTemperature() {
-			return TEMPERATURE;
-		}
+		return updated;
+	}
 
-		static float getFuel() {
-			return FUEL_KM;
-		}
+	float getTime() {
+		return TIME;
+	}
 
-		static float getSpeed() {
-			return SPEED_KMH;
-		}
+	float getTemperature() {
+		return TEMPERATURE;
+	}
 
-		static float getConsumption() {
-			return CONSUMPTION_L100KM;
-		}
+	float getFuel() {
+		return FUEL_KM;
+	}
 
-};
+	float getSpeed() {
+		return SPEED_KMH;
+	}
 
-float BC::TIME = INFINITY;
-float BC::FUEL_KM = INFINITY;
-float BC::SPEED_KMH = INFINITY;
-float BC::TEMPERATURE = INFINITY;
-float BC::CONSUMPTION_L100KM = INFINITY;
+	float getConsumption() {
+		return CONSUMPTION_L100KM;
+	}
+
+}
 
 #endif
