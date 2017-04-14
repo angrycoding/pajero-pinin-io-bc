@@ -234,9 +234,7 @@ namespace BC_PRIVATE {
 namespace BC {
 
 	void init() {
-
 		using namespace BC_PRIVATE;
-
 		SPCR |= bit(SPE);
 		SPI.setBitOrder(LSBFIRST);
 		SPI.setDataMode(SPI_MODE3);
