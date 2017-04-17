@@ -260,6 +260,7 @@ namespace BC_PRIVATE {
 
 			if (doResetSpeed) {
 				doResetSpeed = false;
+				newMeterage = INFINITY;
 				state = BC_STATE_RESET_PRESS;
 			}
 
@@ -279,6 +280,7 @@ namespace BC_PRIVATE {
 
 			if (doResetConsumption) {
 				doResetConsumption = false;
+				newMeterage = INFINITY;
 				state = BC_STATE_RESET_PRESS;
 			}
 
@@ -390,8 +392,6 @@ namespace BC {
 		}
 
 		return false;
-
-
 	}
 
 	void resetSpeed() {
