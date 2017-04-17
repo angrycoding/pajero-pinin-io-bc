@@ -3,11 +3,6 @@
 
 #include <SPI.h>
 
-// пин контроллирующий кнопку режима
-#define PIN_BUTTON_MODE 2
-// пин контроллирующий кнопку сброса
-#define PIN_BUTTON_RESET 2
-
 // константы используемые для контроля целостности принимаемого пакета,
 // позволяют понять что конкретно мы принимаем в данный момент и не потерялось ли чего
 
@@ -160,6 +155,11 @@
 // членам класса, это единственная возможность разграничить права доступа
 
 namespace BC_PRIVATE {
+
+	// пин контроллирующий кнопку режима
+	uint8_t pinButtonMode;
+	// пин контроллирующий кнопку сброса
+	uint8_t pinButtonReset;
 
 	// текущее время
 	float time = INFINITY;
@@ -333,12 +333,14 @@ namespace BC_PRIVATE {
 
 namespace BC {
 
-	void init() {
+	void init(pinMode, pinReset) {
 		using namespace BC_PRIVATE;
 		SPCR |= bit(SPE);
 		SPI.setBitOrder(LSBFIRST);
 		SPI.setDataMode(SPI_MODE3);
 		state = BC_STATE_IDLE;
+		pinButtonMode = pinMode;
+		pinButtonReset = pinReset;
 	}
 
 	bool update() {

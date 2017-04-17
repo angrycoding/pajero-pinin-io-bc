@@ -1,12 +1,17 @@
 #include "BC.h"
 #include "RPC.h"
 
+// пин контроллирующий кнопку режима
+#define PIN_BUTTON_MODE 2
+// пин контроллирующий кнопку сброса
+#define PIN_BUTTON_RESET 3
+
 #define CMD_RESET_SPEED 65
 #define CMD_RESET_CONSUMPTION 66
 
 void setup() {
 	Serial.begin(115200);
-	BC::init();
+	BC::init(PIN_BUTTON_MODE, PIN_BUTTON_RESET);
 }
 
 void serialEvent() {
