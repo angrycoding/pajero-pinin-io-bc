@@ -333,7 +333,7 @@ namespace BC_PRIVATE {
 
 namespace BC {
 
-	void init(pinMode, pinReset) {
+	void init(uint8_t pinMode, uint8_t pinReset) {
 		using namespace BC_PRIVATE;
 		SPCR |= bit(SPE);
 		SPI.setBitOrder(LSBFIRST);
@@ -360,26 +360,26 @@ namespace BC {
 
 			case BC_STATE_RESET_PRESS:
 				actionTime = millis();
-				digitalWrite(PIN_BUTTON_RESET, HIGH);
+				digitalWrite(pinButtonReset, HIGH);
 				state = BC_STATE_RESET_RELEASE;
 				break;
 
 			case BC_STATE_RESET_RELEASE:
 				if (millis() - actionTime >= RESET_ACTION_DELAY) {
-					digitalWrite(PIN_BUTTON_RESET, LOW);
+					digitalWrite(pinButtonReset, LOW);
 					state = BC_STATE_MODE_PRESS;
 				}
 				break;
 
 			case BC_STATE_MODE_PRESS:
 				actionTime = millis();
-				digitalWrite(PIN_BUTTON_MODE, HIGH);
+				digitalWrite(pinButtonMode, HIGH);
 				state = BC_STATE_MODE_RELEASE;
 				break;
 
 			case BC_STATE_MODE_RELEASE:
 				if (millis() - actionTime >= MODE_ACTION_DELAY) {
-					digitalWrite(PIN_BUTTON_MODE, LOW);
+					digitalWrite(pinButtonMode, LOW);
 					state = BC_STATE_IDLE;
 				}
 				break;
