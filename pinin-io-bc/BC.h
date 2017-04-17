@@ -3,6 +3,11 @@
 
 #include <SPI.h>
 
+// пин контроллирующий кнопку режима
+#define PIN_BUTTON_MODE 2
+// пин контроллирующий кнопку сброса
+#define PIN_BUTTON_RESET 2
+
 // константы используемые для контроля целостности принимаемого пакета,
 // позволяют понять что конкретно мы принимаем в данный момент и не потерялось ли чего
 
@@ -19,10 +24,23 @@
 
 // не принимаем данные от мастера
 #define BC_STATE_IDLE 100
+// инициирован сброс показателя
+#define BC_STATE_RESET_PRESS 101
+// сброс показателя в процессе
+#define BC_STATE_RESET_RELEASE 102
+// инициировано переключение режима
+#define BC_STATE_MODE_PRESS 103
+// переключение режима в процессе
+#define BC_STATE_MODE_RELEASE 104
 // ожидаем первого байта от мастера
 #define BC_STATE_START 0
 // успешно приняли данные от мастера
 #define BC_STATE_DONE 44
+
+// задержка переключения режимов
+#define MODE_ACTION_DELAY 500
+// задержка сброса показателя
+#define RESET_ACTION_DELAY 3000
 
 // константы для перевода миль и галлонов в километры и литры
 #define MILE_TO_KM 1.60934
@@ -143,27 +161,29 @@
 
 namespace BC_PRIVATE {
 
-	// сбросить среднюю скорость при следующем переключении режима
-	bool DO_RESET_SPEED = false;
-	// сбросить расход топлива при следующем переключении режима
-	bool DO_RESET_CONSUMPTION = false;
-
 	// текущее время
-	float TIME = INFINITY;
+	float time = INFINITY;
 	// внешняя температура
-	float TEMPERATURE = INFINITY;
+	float temperature = INFINITY;
 	// запас топлива (км)
-	float FUEL_KM = INFINITY;
+	float fuel = INFINITY;
 	// средняя скорость (км/ч)
-	float SPEED_KMH = INFINITY;
+	float speed = INFINITY;
 	// расход топлива (л/100км)
-	float CONSUMPTION_L100KM = INFINITY;
+	float consumption = INFINITY;
 
-	volatile uint8_t BC_STATE;
-	volatile uint32_t LCD_TIME;
-	volatile uint32_t LCD_METERAGE;
-	volatile uint32_t LCD_TEMPERATURE;
-	volatile uint8_t LCD_METERAGE_UNIT;
+	// время начала сброса / переключения режима
+	uint32_t actionTime;
+	// сбросить среднюю скорость при следующем переключении режима
+	bool doResetSpeed = false;
+	// сбросить расход топлива при следующем переключении режима
+	bool doResetConsumption = false;
+
+	volatile uint8_t state;
+	volatile uint32_t lcdTime;
+	volatile uint32_t lcdMeterage;
+	volatile uint32_t lcdTemperature;
+	volatile uint8_t lcdMeterageUnit;
 
 	// конвертирует 7 - битную маску сегмента полученную из 32х - битного числа
 	// описывающего состояние виртуального LCD - дисплея в отображаемое значение
@@ -206,32 +226,106 @@ namespace BC_PRIVATE {
 		return result;
 	}
 
+	bool doUpdate() {
+		bool updated = false;
+		float newTime = LCD_getValue(lcdTime);
+		float newMeterage = LCD_getValue(lcdMeterage);
+		float newTemperature = LCD_getValue(lcdTemperature);
+
+		if (time != newTime) {
+			time = newTime;
+			updated = true;
+		}
+
+		if (temperature != newTemperature) {
+			temperature = newTemperature;
+			updated = true;
+		}
+
+		if (lcdMeterageUnit == METERAGE_FUEL_KM || lcdMeterageUnit == METERAGE_FUEL_MILES) {
+
+			if (newMeterage != INFINITY && newMeterage != 0) {
+				if (lcdMeterageUnit == METERAGE_FUEL_MILES) {
+					newMeterage = ceil(newMeterage * MILE_TO_KM);
+				}
+			}
+
+			if (fuel != newMeterage) {
+				fuel = newMeterage;
+				updated = true;
+			}
+		}
+
+		else if (lcdMeterageUnit == METERAGE_SPEED_KMH || lcdMeterageUnit == METERAGE_SPEED_MPH) {
+
+			if (doResetSpeed) {
+				doResetSpeed = false;
+				state = BC_STATE_RESET_PRESS;
+			}
+
+			if (newMeterage != INFINITY && newMeterage != 0) {
+				if (lcdMeterageUnit == METERAGE_SPEED_MPH) {
+					newMeterage = ceil(newMeterage * MILE_TO_KM);
+				}
+			}
+
+			if (speed != newMeterage) {
+				speed = newMeterage;
+				updated = true;
+			}
+		}
+
+		else if (lcdMeterageUnit == METERAGE_CONSUMPTION_L100KM || lcdMeterageUnit == METERAGE_CONSUMPTION_KML || lcdMeterageUnit == METERAGE_CONSUMPTION_MPG) {
+
+			if (doResetConsumption) {
+				doResetConsumption = false;
+				state = BC_STATE_RESET_PRESS;
+			}
+
+			if (newMeterage != INFINITY && newMeterage != 0) {
+				if (lcdMeterageUnit == METERAGE_CONSUMPTION_MPG) newMeterage = round(10 * (MPG_TO_L100KM / newMeterage)) / 10;
+				else if (lcdMeterageUnit == METERAGE_CONSUMPTION_KML) newMeterage = round(10 * (100 / newMeterage)) / 10;
+			}
+
+			if (consumption != newMeterage) {
+				consumption = newMeterage;
+				updated = true;
+			}
+
+		}
+
+
+		if (state == BC_STATE_DONE) state = BC_STATE_MODE_PRESS;
+
+		return updated;
+	}
+
 	// обработчик SPI - прерывания
 	ISR(SPI_STC_vect) {
 		uint8_t value = SPDR;
-		switch (BC_STATE++) {
-			case 0: if (value != LC75874_X_START) BC_STATE = BC_STATE_START; break;
-			case 4: LCD_TEMPERATURE = LCD_10T(value, 0) | LCD_10TL(value, 1) | LCD_10BL(value, 2) | LCD_MINUS(value, 3) | LCD_10TR(value, 4) | LCD_10C(value, 5) | LCD_10BR(value, 6) | LCD_10B(value, 7); break;
-			case 5: LCD_TEMPERATURE |= LCD_1T(value, 0) | LCD_1TL(value, 1) | LCD_1BL(value, 2) | LCD_1TR(value, 4) | LCD_1C(value, 5) | LCD_1BR(value, 6) | LCD_1B(value, 7); break;
-			case 10: if (value >> 6 != LC75874_1_END) BC_STATE = BC_STATE_START; break;
-			case 11: if (value != LC75874_X_START) BC_STATE = BC_STATE_START; break;
-			case 18: LCD_METERAGE = LCD_100T(value, 4) | LCD_100TL(value, 5) | LCD_100BL(value, 6) | LCD_1000(value, 7); break;
-			case 19: LCD_METERAGE |= LCD_100TR(value, 0) | LCD_100C(value, 1) | LCD_100BR(value, 2) | LCD_100B(value, 3) | LCD_10T(value, 4) | LCD_10TL(value, 5) | LCD_10BL(value, 6); break;
-			case 20: LCD_METERAGE |= LCD_10TR(value, 0) | LCD_10C(value, 1) | LCD_10BR(value, 2) | LCD_10B(value, 3); break;
-			case 21: if (value >> 6 != LC75874_2_END) BC_STATE = BC_STATE_START; break;
-			case 22: if (value != LC75874_X_START) BC_STATE = BC_STATE_START; break;
-			case 23: LCD_METERAGE |= LCD_1T(value, 0) | LCD_1TL(value, 1) | LCD_1BL(value, 2) | LCD_1TR(value, 4) | LCD_1C(value, 5) | LCD_1BR(value, 6) | LCD_1B(value, 7); break;
-			case 24: LCD_METERAGE_UNIT = value; break;
-			case 28: LCD_METERAGE |= LCD_DOT(value, 7); break;
-			case 32: if (value >> 6 != LC75874_3_END) BC_STATE = BC_STATE_START; break;
-			case 33: if (value != LC75874_X_START) BC_STATE = BC_STATE_START; break;
-			case 36: LCD_TIME = LCD_1000(value, 1) | LCD_100B(value, 2) | LCD_100BL(value, 3) | LCD_100C(value, 6) | LCD_100TL(value, 7); break;
-			case 37: LCD_TIME |= LCD_100BR(value, 2) | LCD_100TR(value, 3) | LCD_100T(value, 7); break;
-			case 38: LCD_TIME |= LCD_10B(value, 2) | LCD_10BL(value, 3) | LCD_10C(value, 6) | LCD_10TL(value, 7); break;
-			case 39: LCD_TIME |= LCD_10BR(value, 2) | LCD_10TR(value, 3) | LCD_10T(value, 7); break;
-			case 40: LCD_TIME |= LCD_1B(value, 2) | LCD_1BL(value, 3) | LCD_1C(value, 6) | LCD_1TL(value, 7); break;
-			case 41: LCD_TIME |= LCD_1BR(value, 2) | LCD_1TR(value, 3) | LCD_1T(value, 7); break;
-			case 43: if (value >> 6 == LC75874_4_END) SPI.detachInterrupt(); else BC_STATE = BC_STATE_START; break;
+		switch (state++) {
+			case 0: if (value != LC75874_X_START) state = BC_STATE_START; break;
+			case 4: lcdTemperature = LCD_10T(value, 0) | LCD_10TL(value, 1) | LCD_10BL(value, 2) | LCD_MINUS(value, 3) | LCD_10TR(value, 4) | LCD_10C(value, 5) | LCD_10BR(value, 6) | LCD_10B(value, 7); break;
+			case 5: lcdTemperature |= LCD_1T(value, 0) | LCD_1TL(value, 1) | LCD_1BL(value, 2) | LCD_1TR(value, 4) | LCD_1C(value, 5) | LCD_1BR(value, 6) | LCD_1B(value, 7); break;
+			case 10: if (value >> 6 != LC75874_1_END) state = BC_STATE_START; break;
+			case 11: if (value != LC75874_X_START) state = BC_STATE_START; break;
+			case 18: lcdMeterage = LCD_100T(value, 4) | LCD_100TL(value, 5) | LCD_100BL(value, 6) | LCD_1000(value, 7); break;
+			case 19: lcdMeterage |= LCD_100TR(value, 0) | LCD_100C(value, 1) | LCD_100BR(value, 2) | LCD_100B(value, 3) | LCD_10T(value, 4) | LCD_10TL(value, 5) | LCD_10BL(value, 6); break;
+			case 20: lcdMeterage |= LCD_10TR(value, 0) | LCD_10C(value, 1) | LCD_10BR(value, 2) | LCD_10B(value, 3); break;
+			case 21: if (value >> 6 != LC75874_2_END) state = BC_STATE_START; break;
+			case 22: if (value != LC75874_X_START) state = BC_STATE_START; break;
+			case 23: lcdMeterage |= LCD_1T(value, 0) | LCD_1TL(value, 1) | LCD_1BL(value, 2) | LCD_1TR(value, 4) | LCD_1C(value, 5) | LCD_1BR(value, 6) | LCD_1B(value, 7); break;
+			case 24: lcdMeterageUnit = value; break;
+			case 28: lcdMeterage |= LCD_DOT(value, 7); break;
+			case 32: if (value >> 6 != LC75874_3_END) state = BC_STATE_START; break;
+			case 33: if (value != LC75874_X_START) state = BC_STATE_START; break;
+			case 36: lcdTime = LCD_1000(value, 1) | LCD_100B(value, 2) | LCD_100BL(value, 3) | LCD_100C(value, 6) | LCD_100TL(value, 7); break;
+			case 37: lcdTime |= LCD_100BR(value, 2) | LCD_100TR(value, 3) | LCD_100T(value, 7); break;
+			case 38: lcdTime |= LCD_10B(value, 2) | LCD_10BL(value, 3) | LCD_10C(value, 6) | LCD_10TL(value, 7); break;
+			case 39: lcdTime |= LCD_10BR(value, 2) | LCD_10TR(value, 3) | LCD_10T(value, 7); break;
+			case 40: lcdTime |= LCD_1B(value, 2) | LCD_1BL(value, 3) | LCD_1C(value, 6) | LCD_1TL(value, 7); break;
+			case 41: lcdTime |= LCD_1BR(value, 2) | LCD_1TR(value, 3) | LCD_1T(value, 7); break;
+			case 43: if (value >> 6 == LC75874_4_END) SPI.detachInterrupt(); else state = BC_STATE_START; break;
 		}
 	}
 
@@ -244,123 +338,93 @@ namespace BC {
 		SPCR |= bit(SPE);
 		SPI.setBitOrder(LSBFIRST);
 		SPI.setDataMode(SPI_MODE3);
-		BC_STATE = BC_STATE_IDLE;
+		state = BC_STATE_IDLE;
 	}
 
 	bool update() {
 
 		using namespace BC_PRIVATE;
 
-		if (BC_STATE == BC_STATE_IDLE) {
-			LCD_TIME = 0;
-			LCD_METERAGE = 0;
-			LCD_TEMPERATURE = 0;
-			LCD_METERAGE_UNIT = 0;
-			BC_STATE = BC_STATE_START;
-			SPI.attachInterrupt();
-			return false;
-		}
+		switch (state) {
 
+			case BC_STATE_IDLE:
+				lcdTime = 0;
+				lcdMeterage = 0;
+				lcdTemperature = 0;
+				lcdMeterageUnit = 0;
+				state = BC_STATE_START;
+				SPI.attachInterrupt();
+				break;
 
-		if (BC_STATE != BC_STATE_DONE) return false;
-		BC_STATE = BC_STATE_IDLE;
+			case BC_STATE_RESET_PRESS:
+				actionTime = millis();
+				digitalWrite(PIN_BUTTON_RESET, HIGH);
+				state = BC_STATE_RESET_RELEASE;
+				break;
 
-
-		bool updated = false;
-		float newTime = LCD_getValue(LCD_TIME);
-		float newMeterage = LCD_getValue(LCD_METERAGE);
-		float newTemperature = LCD_getValue(LCD_TEMPERATURE);
-
-		if (TIME != newTime) {
-			TIME = newTime;
-			updated = true;
-		}
-
-		if (TEMPERATURE != newTemperature) {
-			TEMPERATURE = newTemperature;
-			updated = true;
-		}
-
-		if (LCD_METERAGE_UNIT == METERAGE_FUEL_KM || LCD_METERAGE_UNIT == METERAGE_FUEL_MILES) {
-
-			if (newMeterage != INFINITY && newMeterage != 0) {
-				if (LCD_METERAGE_UNIT == METERAGE_FUEL_MILES) {
-					newMeterage = ceil(newMeterage * MILE_TO_KM);
+			case BC_STATE_RESET_RELEASE:
+				if (millis() - actionTime >= RESET_ACTION_DELAY) {
+					digitalWrite(PIN_BUTTON_RESET, LOW);
+					state = BC_STATE_MODE_PRESS;
 				}
-			}
+				break;
 
-			if (FUEL_KM != newMeterage) {
-				FUEL_KM = newMeterage;
-				updated = true;
-			}
-		}
+			case BC_STATE_MODE_PRESS:
+				actionTime = millis();
+				digitalWrite(PIN_BUTTON_MODE, HIGH);
+				state = BC_STATE_MODE_RELEASE;
+				break;
 
-		else if (LCD_METERAGE_UNIT == METERAGE_SPEED_KMH || LCD_METERAGE_UNIT == METERAGE_SPEED_MPH) {
-
-			if (newMeterage != INFINITY && newMeterage != 0) {
-				if (LCD_METERAGE_UNIT == METERAGE_SPEED_MPH) {
-					newMeterage = ceil(newMeterage * MILE_TO_KM);
+			case BC_STATE_MODE_RELEASE:
+				if (millis() - actionTime >= MODE_ACTION_DELAY) {
+					digitalWrite(PIN_BUTTON_MODE, LOW);
+					state = BC_STATE_IDLE;
 				}
-			}
+				break;
 
-			if (SPEED_KMH != newMeterage) {
-				SPEED_KMH = newMeterage;
-				updated = true;
-			}
-		}
-
-		else if (LCD_METERAGE_UNIT == METERAGE_CONSUMPTION_L100KM || LCD_METERAGE_UNIT == METERAGE_CONSUMPTION_KML || LCD_METERAGE_UNIT == METERAGE_CONSUMPTION_MPG) {
-
-
-			if (newMeterage != INFINITY && newMeterage != 0) {
-				if (LCD_METERAGE_UNIT == METERAGE_CONSUMPTION_MPG) newMeterage = round(10 * (MPG_TO_L100KM / newMeterage)) / 10;
-				else if (LCD_METERAGE_UNIT == METERAGE_CONSUMPTION_KML) newMeterage = round(10 * (100 / newMeterage)) / 10;
-			}
-
-			if (CONSUMPTION_L100KM != newMeterage) {
-				CONSUMPTION_L100KM = newMeterage;
-				updated = true;
-			}
+			case BC_STATE_DONE:
+				return doUpdate();
 
 		}
 
+		return false;
 
-		return updated;
+
 	}
 
 	void resetSpeed() {
 		using namespace BC_PRIVATE;
-		DO_RESET_SPEED = true;
+		doResetSpeed = true;
 	}
 
 	void resetConsumption() {
 		using namespace BC_PRIVATE;
-		DO_RESET_CONSUMPTION = true;
+		doResetConsumption = true;
 	}
 
 	float getTime() {
 		using namespace BC_PRIVATE;
-		return TIME;
+		return time;
 	}
 
 	float getTemperature() {
 		using namespace BC_PRIVATE;
-		return TEMPERATURE;
+		return temperature;
 	}
 
 	float getFuel() {
 		using namespace BC_PRIVATE;
-		return FUEL_KM;
+		return fuel;
 	}
 
 	float getSpeed() {
 		using namespace BC_PRIVATE;
-		return SPEED_KMH;
+		return speed;
 	}
 
 	float getConsumption() {
 		using namespace BC_PRIVATE;
-		return CONSUMPTION_L100KM;
+		return consumption;
 	}
 
 }
