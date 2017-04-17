@@ -13,7 +13,7 @@
 #define PIN_KLINE_OUT 5
 
 // интервал watch-dog таймера
-#define WDT_INTERVAL WDTO_4S
+#define WDT_INTERVAL WDTO_1S
 // скорость последовательного порта
 #define SERIAL_SPEED 115200
 // минимальный интервал между обновлениями БК
@@ -21,6 +21,7 @@
 
 #define CMD_RESET_SPEED 65
 #define CMD_RESET_CONSUMPTION 66
+
 
 void setup() {
 	wdt_enable(WDT_INTERVAL);

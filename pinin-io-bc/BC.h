@@ -393,7 +393,7 @@ namespace BC {
 				break;
 
 			case BC_STATE_UPDATE_DELAY:
-				if (millis() - actionTime >= updateInterval) 
+				if (millis() - actionTime >= updateInterval)
 					state = BC_STATE_IDLE;
 				break;
 
