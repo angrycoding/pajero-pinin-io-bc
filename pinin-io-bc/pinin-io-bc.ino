@@ -1,6 +1,12 @@
 #include "BC.h"
 #include "RPC.h"
+#include "KLine.h"
+#include <avr/wdt.h>
 
+// интервал watch-dog таймера
+#define WDT_INTERVAL WDTO_4S
+// скорость последовательного порта
+#define SERIAL_SPEED 115200
 // пин контроллирующий кнопку режима
 #define PIN_BUTTON_MODE 2
 // пин контроллирующий кнопку сброса
@@ -12,7 +18,8 @@
 #define CMD_RESET_CONSUMPTION 66
 
 void setup() {
-	Serial.begin(115200);
+	wdt_enable(WDT_INTERVAL);
+	Serial.begin(SERIAL_SPEED);
 	BC::init(PIN_BUTTON_MODE, PIN_BUTTON_RESET, BC_UPDATE_INTERVAL_MS);
 }
 
@@ -24,6 +31,8 @@ void serialEvent() {
 }
 
 void loop() {
+
+	wdt_reset();
 
 	if (BC::update()) {
 

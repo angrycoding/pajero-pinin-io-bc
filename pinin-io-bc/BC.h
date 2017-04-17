@@ -339,15 +339,15 @@ namespace BC_PRIVATE {
 
 namespace BC {
 
-	void init(uint8_t pinMode, uint8_t pinReset, uint32_t updateIntervalMS) {
+	void init(uint8_t pinButtonMode, uint8_t pinButtonReset, uint32_t updateInterval) {
 		using namespace BC_PRIVATE;
 		SPCR |= bit(SPE);
 		SPI.setBitOrder(LSBFIRST);
 		SPI.setDataMode(SPI_MODE3);
 		state = BC_STATE_IDLE;
-		pinButtonMode = pinMode;
-		pinButtonReset = pinReset;
-		updateInterval = updateIntervalMS;
+		BC_PRIVATE::updateInterval = updateInterval;
+		pinMode(BC_PRIVATE::pinButtonMode = pinButtonMode, OUTPUT);
+		pinMode(BC_PRIVATE::pinButtonReset = pinButtonReset, OUTPUT);
 	}
 
 	bool update() {
