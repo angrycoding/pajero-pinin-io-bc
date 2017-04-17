@@ -27,15 +27,17 @@
 #define BC_STATE_MODE_PRESS 103
 // переключение режима в процессе
 #define BC_STATE_MODE_RELEASE 104
+// ожидание истечения интервала между обновлениями
+#define BC_STATE_UPDATE_DELAY 105
 // ожидаем первого байта от мастера
 #define BC_STATE_START 0
 // успешно приняли данные от мастера
 #define BC_STATE_DONE 44
 
 // задержка переключения режимов
-#define MODE_ACTION_DELAY 500
+#define MODE_ACTION_DELAY_MS 500
 // задержка сброса показателя
-#define RESET_ACTION_DELAY 3000
+#define RESET_ACTION_DELAY_MS 3000
 
 // константы для перевода миль и галлонов в километры и литры
 #define MILE_TO_KM 1.60934
@@ -160,6 +162,8 @@ namespace BC_PRIVATE {
 	uint8_t pinButtonMode;
 	// пин контроллирующий кнопку сброса
 	uint8_t pinButtonReset;
+	// минимальный интервал между обновлениями БК
+	uint32_t updateInterval;
 
 	// текущее время
 	float time = INFINITY;
@@ -335,7 +339,7 @@ namespace BC_PRIVATE {
 
 namespace BC {
 
-	void init(uint8_t pinMode, uint8_t pinReset) {
+	void init(uint8_t pinMode, uint8_t pinReset, uint32_t updateIntervalMS) {
 		using namespace BC_PRIVATE;
 		SPCR |= bit(SPE);
 		SPI.setBitOrder(LSBFIRST);
@@ -343,6 +347,7 @@ namespace BC {
 		state = BC_STATE_IDLE;
 		pinButtonMode = pinMode;
 		pinButtonReset = pinReset;
+		updateInterval = updateIntervalMS;
 	}
 
 	bool update() {
@@ -367,7 +372,7 @@ namespace BC {
 				break;
 
 			case BC_STATE_RESET_RELEASE:
-				if (millis() - actionTime >= RESET_ACTION_DELAY) {
+				if (millis() - actionTime >= RESET_ACTION_DELAY_MS) {
 					digitalWrite(pinButtonReset, LOW);
 					state = BC_STATE_MODE_PRESS;
 				}
@@ -380,10 +385,16 @@ namespace BC {
 				break;
 
 			case BC_STATE_MODE_RELEASE:
-				if (millis() - actionTime >= MODE_ACTION_DELAY) {
+				if (millis() - actionTime >= MODE_ACTION_DELAY_MS) {
 					digitalWrite(pinButtonMode, LOW);
-					state = BC_STATE_IDLE;
+					actionTime = millis();
+					state = BC_STATE_UPDATE_DELAY;
 				}
+				break;
+
+			case BC_STATE_UPDATE_DELAY:
+				if (millis() - actionTime >= updateInterval) 
+					state = BC_STATE_IDLE;
 				break;
 
 			case BC_STATE_DONE:

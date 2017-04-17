@@ -5,13 +5,15 @@
 #define PIN_BUTTON_MODE 2
 // пин контроллирующий кнопку сброса
 #define PIN_BUTTON_RESET 3
+// минимальный интервал между обновлениями БК
+#define BC_UPDATE_INTERVAL_MS 5000
 
 #define CMD_RESET_SPEED 65
 #define CMD_RESET_CONSUMPTION 66
 
 void setup() {
 	Serial.begin(115200);
-	BC::init(PIN_BUTTON_MODE, PIN_BUTTON_RESET);
+	BC::init(PIN_BUTTON_MODE, PIN_BUTTON_RESET, BC_UPDATE_INTERVAL_MS);
 }
 
 void serialEvent() {
