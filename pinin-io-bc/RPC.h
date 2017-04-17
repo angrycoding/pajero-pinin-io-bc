@@ -6,7 +6,7 @@
 #define PACKET_B4 0x7D
 #define PACKET_B5 0x29
 
-namespace RPC_PRIVATE {
+namespace RPC_private {
 	uint8_t command;
 	uint8_t position = 0;
 }
@@ -14,7 +14,7 @@ namespace RPC_PRIVATE {
 namespace RPC {
 
 	bool process() {
-		using namespace RPC_PRIVATE;
+		using namespace RPC_private;
 		byte size;
 		while (size = Serial.available()) switch (position++) {
 			case 0: if (Serial.read() != PACKET_B1) position = 0; break;
@@ -27,7 +27,7 @@ namespace RPC {
 	}
 
 	uint8_t getCommand() {
-		using namespace RPC_PRIVATE;
+		using namespace RPC_private;
 		return command;
 	}
 

@@ -3,14 +3,19 @@
 #include "KLine.h"
 #include <avr/wdt.h>
 
-// интервал watch-dog таймера
-#define WDT_INTERVAL WDTO_4S
-// скорость последовательного порта
-#define SERIAL_SPEED 115200
 // пин контроллирующий кнопку режима
 #define PIN_BUTTON_MODE 2
 // пин контроллирующий кнопку сброса
 #define PIN_BUTTON_RESET 3
+// пин контроллирующий прием данных из K-line
+#define PIN_KLINE_IN 4
+// пин контроллирующий отправку данных в K-line
+#define PIN_KLINE_OUT 5
+
+// интервал watch-dog таймера
+#define WDT_INTERVAL WDTO_4S
+// скорость последовательного порта
+#define SERIAL_SPEED 115200
 // минимальный интервал между обновлениями БК
 #define BC_UPDATE_INTERVAL_MS 5000
 
@@ -20,6 +25,7 @@
 void setup() {
 	wdt_enable(WDT_INTERVAL);
 	Serial.begin(SERIAL_SPEED);
+	KLine::init(PIN_KLINE_IN, PIN_KLINE_OUT);
 	BC::init(PIN_BUTTON_MODE, PIN_BUTTON_RESET, BC_UPDATE_INTERVAL_MS);
 }
 

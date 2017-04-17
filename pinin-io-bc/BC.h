@@ -156,7 +156,7 @@
 // ввиду того, что обработчик прерывания не может иметь доступа к приватным
 // членам класса, это единственная возможность разграничить права доступа
 
-namespace BC_PRIVATE {
+namespace BC_private {
 
 	// пин контроллирующий кнопку режима
 	uint8_t pinButtonMode;
@@ -340,19 +340,19 @@ namespace BC_PRIVATE {
 namespace BC {
 
 	void init(uint8_t pinButtonMode, uint8_t pinButtonReset, uint32_t updateInterval) {
-		using namespace BC_PRIVATE;
+		using namespace BC_private;
 		SPCR |= bit(SPE);
 		SPI.setBitOrder(LSBFIRST);
 		SPI.setDataMode(SPI_MODE3);
 		state = BC_STATE_IDLE;
-		BC_PRIVATE::updateInterval = updateInterval;
-		pinMode(BC_PRIVATE::pinButtonMode = pinButtonMode, OUTPUT);
-		pinMode(BC_PRIVATE::pinButtonReset = pinButtonReset, OUTPUT);
+		BC_private::updateInterval = updateInterval;
+		pinMode(BC_private::pinButtonMode = pinButtonMode, OUTPUT);
+		pinMode(BC_private::pinButtonReset = pinButtonReset, OUTPUT);
 	}
 
 	bool update() {
 
-		using namespace BC_PRIVATE;
+		using namespace BC_private;
 
 		switch (state) {
 
@@ -406,37 +406,37 @@ namespace BC {
 	}
 
 	void resetSpeed() {
-		using namespace BC_PRIVATE;
+		using namespace BC_private;
 		doResetSpeed = true;
 	}
 
 	void resetConsumption() {
-		using namespace BC_PRIVATE;
+		using namespace BC_private;
 		doResetConsumption = true;
 	}
 
 	float getTime() {
-		using namespace BC_PRIVATE;
+		using namespace BC_private;
 		return time;
 	}
 
 	float getTemperature() {
-		using namespace BC_PRIVATE;
+		using namespace BC_private;
 		return temperature;
 	}
 
 	float getFuel() {
-		using namespace BC_PRIVATE;
+		using namespace BC_private;
 		return fuel;
 	}
 
 	float getSpeed() {
-		using namespace BC_PRIVATE;
+		using namespace BC_private;
 		return speed;
 	}
 
 	float getConsumption() {
-		using namespace BC_PRIVATE;
+		using namespace BC_private;
 		return consumption;
 	}
 
