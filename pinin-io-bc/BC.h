@@ -349,13 +349,19 @@ namespace BC {
 	// на которые повешаны кнопки сброса и режима, а также интервал обновления показаний
 	void init(uint8_t pinButtonMode, uint8_t pinButtonReset, uint32_t updateInterval) {
 		using namespace BC_private;
+		// настройка SPI в режиме slave
 		SPCR |= bit(SPE);
 		SPI.setBitOrder(LSBFIRST);
 		SPI.setDataMode(SPI_MODE3);
+		// инициализация переменных и настройка пинов
 		state = BC_STATE_IDLE;
 		BC_private::updateInterval = updateInterval;
 		pinMode(BC_private::pinButtonMode = pinButtonMode, OUTPUT);
 		pinMode(BC_private::pinButtonReset = pinButtonReset, OUTPUT);
+		// просто для того, чтобы было понятно в каком состоянии должны
+		// находиться соответствующие пины по - умолчанию
+		digitalWrite(pinButtonMode, LOW);
+		digitalWrite(pinButtonReset, LOW);
 	}
 
 	// процедура обновления, вызывается в loop(), возвращает true, в случае,
