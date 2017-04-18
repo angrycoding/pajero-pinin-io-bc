@@ -1,6 +1,6 @@
 #include "BC.h"
+#include "KL.h"
 #include "RPC.h"
-#include "KLine.h"
 #include <avr/wdt.h>
 
 // пин контроллирующий кнопку режима
@@ -26,7 +26,7 @@
 void setup() {
 	wdt_enable(WDT_INTERVAL);
 	Serial.begin(SERIAL_SPEED);
-	KLine::init(PIN_KLINE_IN, PIN_KLINE_OUT);
+	KL::init(PIN_KLINE_IN, PIN_KLINE_OUT);
 	BC::init(PIN_BUTTON_MODE, PIN_BUTTON_RESET, BC_UPDATE_INTERVAL_MS);
 }
 
