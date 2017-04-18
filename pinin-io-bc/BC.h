@@ -346,7 +346,7 @@ namespace BC_private {
 namespace BC {
 
 	// процедура инициализации, вызывается в setup(), принимает номера пинов
-	// на которые повешаны кнопки сброса и режима а также интервал обновления показаний
+	// на которые повешаны кнопки сброса и режима, а также интервал обновления показаний
 	void init(uint8_t pinButtonMode, uint8_t pinButtonReset, uint32_t updateInterval) {
 		using namespace BC_private;
 		SPCR |= bit(SPE);
