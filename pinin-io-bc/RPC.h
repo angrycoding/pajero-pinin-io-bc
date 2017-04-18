@@ -15,8 +15,7 @@ namespace RPC {
 
 	bool process() {
 		using namespace RPC_private;
-		byte size;
-		while (size = Serial.available()) switch (position++) {
+		while (Serial.available()) switch (position++) {
 			case 0: if (Serial.read() != PACKET_B1) position = 0; break;
 			case 1: if (Serial.read() != PACKET_B2) position = 0; break;
 			case 2: command = Serial.read(); break;
