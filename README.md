@@ -5,15 +5,15 @@
 
 Дисплей со всеми включенными сегментами:
 
-![segments](https://github.com/angrycoding/pajero-pinin-io-lcd-slave/blob/master/all_segments.jpg)
+![segments](https://github.com/angrycoding/pajero-pinin-io-lcd-slave/blob/master/docs/all_segments.jpg)
 
 Схема подключения ардуины и процессорной платы:
 
-![segments](https://github.com/angrycoding/pajero-pinin-io-lcd-slave/blob/master/circuit.png)
+![segments](https://github.com/angrycoding/pajero-pinin-io-lcd-slave/blob/master/docs/circuit.png)
 
 Вот так это выглядит в реальности:
 
-![segments](https://github.com/angrycoding/pajero-pinin-io-lcd-slave/blob/master/connections.png)
+![segments](https://github.com/angrycoding/pajero-pinin-io-lcd-slave/blob/master/docs/connections.png)
 
 ## Протокол взаимодействия процессорной платы и платы дисплея
 Все взаимодействие построено на очень похожем на SPI протоколе. То есть у нас есть по сути две линии - CLOCK и DATA, изменение значения CLOCK с 0 на 1, говорит на о том, что на линии DATA можно считать бит данных. Более подробно, протокол описан в документации на чип **LC75874**, там есть еще одна линия, изменение значения на которой дает нам понять о том что конкретно мы  данный момент принимаем (адрес чипа или сами данные), но я на нее забил, поскольку тратить еще один вход ради 8 бит - это непозволительная роскошь, поэтому я просто читаю все от начала и до конца.
@@ -24,7 +24,7 @@
 
 На задней стенке БК есть два разъема:
 
-![segments](https://github.com/angrycoding/pajero-pinin-io-lcd-slave/blob/master/sockets.png)
+![segments](https://github.com/angrycoding/pajero-pinin-io-lcd-slave/blob/master/docs/sockets.png)
 
 Для того, чтобы запитать бортовой комп вне автомобиля, нужно подать +12 вольт на пины 25 и 26 разъема C-52, масса есть на корпусе.
 
@@ -36,11 +36,11 @@
 
 Время 1:52:
 
-![segments](https://github.com/angrycoding/pajero-pinin-io-lcd-slave/blob/master/bc.jpg)
+![segments](https://github.com/angrycoding/pajero-pinin-io-lcd-slave/blob/master/docs/bc.jpg)
 
 То же, но уже в терминале:
 
-![segments](https://github.com/angrycoding/pajero-pinin-io-lcd-slave/blob/master/terminal.jpg)
+![segments](https://github.com/angrycoding/pajero-pinin-io-lcd-slave/blob/master/docs/terminal.jpg)
 
 ## Использование watchdog - таймера
 
