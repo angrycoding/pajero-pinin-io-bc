@@ -230,6 +230,12 @@ namespace BC_private {
 		return result;
 	}
 
+	// вызывается после того как мы приняли последний байт от мастера
+	// конвертирует LCD - значения в float (конвертирует при необходимости)
+	// сравнивает с предыдущими и в случае если новое значение не соответствует
+	// тому, что было принято в прошлый раз, выдает true
+	// кроме того, контроллирует флаги принудительного сброса показаний
+	// средней скорости и расхода, обновляя стэйт соответствующим образом 
 	bool doUpdate() {
 		bool updated = false;
 		float newTime = LCD_getValue(lcdTime);
@@ -339,6 +345,8 @@ namespace BC_private {
 
 namespace BC {
 
+	// процедура инициализации, вызывается в setup(), принимает номера пинов
+	// на которые повешаны кнопки сброса и режима а также интервал обновления показаний
 	void init(uint8_t pinButtonMode, uint8_t pinButtonReset, uint32_t updateInterval) {
 		using namespace BC_private;
 		SPCR |= bit(SPE);
@@ -350,6 +358,8 @@ namespace BC {
 		pinMode(BC_private::pinButtonReset = pinButtonReset, OUTPUT);
 	}
 
+	// процедура обновления, вызывается в loop(), возвращает true, в случае,
+	// если доступны новые данные
 	bool update() {
 
 		using namespace BC_private;
@@ -405,36 +415,45 @@ namespace BC {
 		return false;
 	}
 
+	// выполняет сброс показателя средней скорости, сброс будет произведен
+	// при следующем обновлении
 	void resetSpeed() {
 		using namespace BC_private;
 		doResetSpeed = true;
 	}
 
+	// выполняет сброс показателя среднего расхода, сброс будет произведен
+	// при следующем обновлении
 	void resetConsumption() {
 		using namespace BC_private;
 		doResetConsumption = true;
 	}
 
+	// возвращает время (1200.0 = 12:00, 830.0 = 08:30 и т. д.)
 	float getTime() {
 		using namespace BC_private;
 		return time;
 	}
 
+	// возвращает внешнюю температуру
 	float getTemperature() {
 		using namespace BC_private;
 		return temperature;
 	}
 
+	// возвращает остаток топлива в километрах
 	float getFuel() {
 		using namespace BC_private;
 		return fuel;
 	}
 
+	// возвращает среднюю скорость в км/ч
 	float getSpeed() {
 		using namespace BC_private;
 		return speed;
 	}
 
+	// возвращает средний расход, в л/100км
 	float getConsumption() {
 		using namespace BC_private;
 		return consumption;
