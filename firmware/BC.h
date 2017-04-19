@@ -159,9 +159,9 @@
 namespace BC_private {
 
 	// пин контроллирующий кнопку режима
-	uint8_t pinMode;
+	uint8_t PIN_MODE;
 	// пин контроллирующий кнопку сброса
-	uint8_t pinReset;
+	uint8_t PIN_RESET;
 	// минимальный интервал между обновлениями БК
 	uint32_t updateInterval;
 
@@ -347,7 +347,7 @@ namespace BC {
 
 	// процедура инициализации, вызывается в setup(), принимает номера пинов
 	// на которые повешаны кнопки сброса и режима, а также интервал обновления показаний
-	void init(uint8_t pinMode, uint8_t pinReset, uint32_t updateInterval) {
+	void init(uint8_t PIN_MODE, uint8_t PIN_RESET, uint32_t updateInterval) {
 		using namespace BC_private;
 		// настройка SPI в режиме slave
 		SPCR |= bit(SPE);
@@ -356,12 +356,12 @@ namespace BC {
 		// инициализация переменных и настройка пинов
 		state = BC_STATE_IDLE;
 		BC_private::updateInterval = updateInterval;
-		pinMode(BC_private::pinMode = pinMode, OUTPUT);
-		pinMode(BC_private::pinReset = pinReset, OUTPUT);
+		pinMode(BC_private::PIN_MODE = PIN_MODE, OUTPUT);
+		pinMode(BC_private::PIN_RESET = PIN_RESET, OUTPUT);
 		// просто для того, чтобы было понятно в каком состоянии должны
 		// находиться соответствующие пины по - умолчанию
-		digitalWrite(pinMode, LOW);
-		digitalWrite(pinReset, LOW);
+		digitalWrite(PIN_MODE, LOW);
+		digitalWrite(PIN_RESET, LOW);
 	}
 
 	// процедура обновления, вызывается в loop(), возвращает true, в случае,
@@ -383,26 +383,26 @@ namespace BC {
 
 			case BC_STATE_RESET_PRESS:
 				actionTime = millis();
-				digitalWrite(pinReset, HIGH);
+				digitalWrite(PIN_RESET, HIGH);
 				state = BC_STATE_RESET_RELEASE;
 				break;
 
 			case BC_STATE_RESET_RELEASE:
 				if (millis() - actionTime >= RESET_ACTION_DELAY_MS) {
-					digitalWrite(pinReset, LOW);
+					digitalWrite(PIN_RESET, LOW);
 					state = BC_STATE_MODE_PRESS;
 				}
 				break;
 
 			case BC_STATE_MODE_PRESS:
 				actionTime = millis();
-				digitalWrite(pinMode, HIGH);
+				digitalWrite(PIN_MODE, HIGH);
 				state = BC_STATE_MODE_RELEASE;
 				break;
 
 			case BC_STATE_MODE_RELEASE:
 				if (millis() - actionTime >= MODE_ACTION_DELAY_MS) {
-					digitalWrite(pinMode, LOW);
+					digitalWrite(PIN_MODE, LOW);
 					actionTime = millis();
 					state = BC_STATE_UPDATE_DELAY;
 				}

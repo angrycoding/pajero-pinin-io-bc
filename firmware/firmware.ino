@@ -21,6 +21,7 @@
 
 #define CMD_RESET_SPEED 65
 #define CMD_RESET_CONSUMPTION 66
+#define CMD_KL_CONNECT 67
 
 
 void setup() {
@@ -32,8 +33,20 @@ void setup() {
 
 void serialEvent() {
 	if (RPC::process()) switch (RPC::getCommand()) {
-		case CMD_RESET_SPEED: BC::resetSpeed(); break;
-		case CMD_RESET_CONSUMPTION: BC::resetConsumption(); break;
+		
+		case CMD_RESET_SPEED:
+			BC::resetSpeed();
+			break;
+
+		case CMD_RESET_CONSUMPTION:
+			BC::resetConsumption();
+			break;
+
+		case CMD_KL_CONNECT:
+			wdt_disable();
+			KL::connect();
+			wdt_enable(WDT_INTERVAL);
+			break;
 	}
 }
 
