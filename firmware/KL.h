@@ -71,12 +71,46 @@ namespace KL {
 		klSerial->begin(15625);
 
 		uint32_t time = millis();
+		uint8_t position = 0;
+		bool success = true;
 
 		for (;;) {
 			if (millis() - time > 3000) break;
 			while (klSerial->available()) {
-				Serial.println(klSerial->read(), HEX);
+				uint8_t value = klSerial->read();
+				switch (position++) {
+					case 0: if (value != 0xC0) success = false; break;
+					case 1: if (value != 0x55) success = false; break;
+					case 2: if (value != 0xEF) success = false; break;
+					case 3: if (value != 0x85) success = false; break;
+					default: success = false;
+				}
+				Serial.println(value, HEX);
 			}
+		}
+
+		if (success) {
+			
+			position = 0;
+			time = millis();
+			int voltage = 0;
+
+			// voltage
+			klSerial->write(0x14);
+
+			for (;;) {
+				if (millis() - time > 3000) break;
+				while (klSerial->available()) {
+					uint8_t value = klSerial->read();
+					if (position == 1) voltage = int(value) * 73 / 100;
+					position++;
+					Serial.println(value, HEX);
+				}
+			}
+
+			Serial.print("VOLTAGE = ");
+			Serial.println(voltage);
+
 		}
 
 		klSerial->end();
