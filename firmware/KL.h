@@ -5,19 +5,19 @@
 
 namespace KL_private {
 
-	uint8_t pinIn;
-	uint8_t pinOut;
+	uint8_t pinRX;
+	uint8_t pinTX;
 	SoftwareSerial *serial;
 
 }
 
 namespace KL {
 
-	void init(uint8_t pinIn, uint8_t pinOut) {
+	void init(uint8_t pinRX, uint8_t pinTX) {
 		using namespace KL_private;
-		pinMode(KL_private::pinIn = pinIn, INPUT);
-		pinMode(KL_private::pinOut = pinOut, OUTPUT);
-		serial = new SoftwareSerial(pinIn, pinOut);
+		pinMode(KL_private::pinRX = pinRX, INPUT);
+		pinMode(KL_private::pinTX = pinTX, OUTPUT);
+		serial = new SoftwareSerial(pinRX, pinTX);
 	}
 
 }

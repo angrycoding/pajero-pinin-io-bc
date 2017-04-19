@@ -8,9 +8,9 @@
 // пин контроллирующий кнопку сброса
 #define PIN_BUTTON_RESET 3
 // пин контроллирующий прием данных из K-line
-#define PIN_KLINE_IN 4
+#define PIN_KLINE_RX 4
 // пин контроллирующий отправку данных в K-line
-#define PIN_KLINE_OUT 5
+#define PIN_KLINE_TX 5
 
 // интервал watch-dog таймера
 #define WDT_INTERVAL WDTO_1S
@@ -26,7 +26,7 @@
 void setup() {
 	wdt_enable(WDT_INTERVAL);
 	Serial.begin(SERIAL_SPEED);
-	KL::init(PIN_KLINE_IN, PIN_KLINE_OUT);
+	KL::init(PIN_KLINE_RX, PIN_KLINE_TX);
 	BC::init(PIN_BUTTON_MODE, PIN_BUTTON_RESET, BC_UPDATE_INTERVAL_MS);
 }
 
