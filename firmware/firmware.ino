@@ -4,13 +4,13 @@
 #include <avr/wdt.h>
 
 // пин контроллирующий кнопку режима
-#define PIN_BUTTON_MODE 2
+#define PIN_BC_MODE 2
 // пин контроллирующий кнопку сброса
-#define PIN_BUTTON_RESET 3
+#define PIN_BC_RESET 3
 // пин контроллирующий прием данных из K-line
-#define PIN_KLINE_RX 4
+#define PIN_KL_RX 4
 // пин контроллирующий отправку данных в K-line
-#define PIN_KLINE_TX 5
+#define PIN_KL_TX 5
 
 // интервал watch-dog таймера
 #define WDT_INTERVAL WDTO_1S
@@ -26,8 +26,8 @@
 void setup() {
 	wdt_enable(WDT_INTERVAL);
 	Serial.begin(SERIAL_SPEED);
-	KL::init(PIN_KLINE_RX, PIN_KLINE_TX);
-	BC::init(PIN_BUTTON_MODE, PIN_BUTTON_RESET, BC_UPDATE_INTERVAL_MS);
+	KL::init(PIN_KL_RX, PIN_KL_TX);
+	BC::init(PIN_BC_MODE, PIN_BC_RESET, BC_UPDATE_INTERVAL_MS);
 }
 
 void serialEvent() {
