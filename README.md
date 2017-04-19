@@ -9,7 +9,7 @@
 
 Схема подключения ардуины и процессорной платы:
 
-![ожидание](https://github.com/angrycoding/pajero-pinin-io-lcd-slave/blob/master/docs/circuit.png)
+![ожидание](https://raw.githubusercontent.com/angrycoding/pajero-pinin-io-lcd-slave/master/docs/circuit.png)
 
 Вот так это выглядит в реальности:
 
