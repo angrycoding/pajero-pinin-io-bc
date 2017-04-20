@@ -6,7 +6,7 @@
 // пин контроллирующий кнопку режима
 #define PIN_BC_MODE 2
 // пин контроллирующий кнопку сброса
-#define PIN_BC_RESET 3
+#define PIN_BC_RESET 6
 // пин контроллирующий прием данных из K-line
 #define PIN_KL_RX 4
 // пин контроллирующий отправку данных в K-line
@@ -33,7 +33,7 @@ void setup() {
 
 void serialEvent() {
 	if (RPC::process()) switch (RPC::getCommand()) {
-		
+
 		case CMD_RESET_SPEED:
 			BC::resetSpeed();
 			break;
