@@ -163,7 +163,7 @@ namespace BC_private {
 	// пин контроллирующий кнопку сброса
 	uint8_t PIN_RESET;
 	// минимальный интервал между обновлениями БК
-	uint32_t updateInterval;
+	uint32_t UPDATE_INTERVAL;
 
 	// текущее время
 	float time = INFINITY;
@@ -347,7 +347,7 @@ namespace BC {
 
 	// процедура инициализации, вызывается в setup(), принимает номера пинов
 	// на которые повешаны кнопки сброса и режима, а также интервал обновления показаний
-	void init(uint8_t PIN_MODE, uint8_t PIN_RESET, uint32_t updateInterval) {
+	void init(uint8_t PIN_MODE, uint8_t PIN_RESET, uint32_t UPDATE_INTERVAL) {
 		using namespace BC_private;
 		// настройка SPI в режиме slave
 		SPCR |= bit(SPE);
@@ -355,7 +355,7 @@ namespace BC {
 		SPI.setDataMode(SPI_MODE3);
 		// инициализация переменных и настройка пинов
 		state = BC_STATE_IDLE;
-		BC_private::updateInterval = updateInterval;
+		BC_private::UPDATE_INTERVAL = UPDATE_INTERVAL;
 		pinMode(BC_private::PIN_MODE = PIN_MODE, OUTPUT);
 		pinMode(BC_private::PIN_RESET = PIN_RESET, OUTPUT);
 		// просто для того, чтобы было понятно в каком состоянии должны
@@ -409,7 +409,7 @@ namespace BC {
 				break;
 
 			case BC_STATE_UPDATE_DELAY:
-				if (millis() - actionTime >= updateInterval)
+				if (millis() - actionTime >= UPDATE_INTERVAL)
 					state = BC_STATE_IDLE;
 				break;
 

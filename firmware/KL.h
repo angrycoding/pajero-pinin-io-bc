@@ -90,7 +90,7 @@ namespace KL {
 		}
 
 		if (success) {
-			
+			delay(60);
 			position = 0;
 			time = millis();
 			int voltage = 0;
