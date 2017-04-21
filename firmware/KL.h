@@ -21,6 +21,13 @@
 #define KL_STATE_PID_START 15
 #define KL_STATE_PID_END 16
 
+// минимальная задержка перед новой попыткой подключения после ошибки
+#define KL_DELAY_RECONNECT 3000
+// минимальная задержка между PID запросами
+#define KL_DELAY_NEXT_PID 60
+// максимальный период ожидания ответа ЭБУ
+#define KL_READ_TIMEOUT 1000
+
 #define KL_PID_COOLANT_TEMP 0x10
 #define KL_PID_VOLTAGE 0x14
 #define KL_PID_THROTTLE 0x17
@@ -77,7 +84,7 @@ namespace KL {
 				break;
 
 			case KL_STATE_RECONNECT_END:
-				if (millis() - actionTime < 3000) break;
+				if (millis() - actionTime < KL_DELAY_RECONNECT) break;
 				state = KL_STATE_B0_START;
 
 			case KL_STATE_B0_START:
@@ -136,7 +143,7 @@ namespace KL {
 				state = KL_STATE_B5_END;
 
 			case KL_STATE_B5_END:
-				if (millis() - actionTime > 1000) { state = KL_STATE_ERROR; break; }
+				if (millis() - actionTime > KL_READ_TIMEOUT) { state = KL_STATE_ERROR; break; }
 				if (klSerial->available() < 3) break;
 				if (klSerial->available() > 3 || klSerial->read() != 0x55 || klSerial->read() != 0xEF || klSerial->read() != 0x85) {
 					state = KL_STATE_ERROR;
@@ -147,7 +154,7 @@ namespace KL {
 				state = KL_STATE_PID_START;
 
 			case KL_STATE_PID_START:
-				if (actionTime && (millis() - actionTime < 60)) break;
+				if (actionTime && (millis() - actionTime < KL_DELAY_NEXT_PID)) break;
 				if (pidIndex == sizeof(PIDS)) pidIndex = 0;
 				while (klSerial->available()) klSerial->read();
 				klSerial->write(PIDS[pidIndex]);
@@ -155,7 +162,7 @@ namespace KL {
 				state = KL_STATE_PID_END;
 
 			case KL_STATE_PID_END:
-				if (millis() - actionTime > 1000) { state = KL_STATE_ERROR; break; }
+				if (millis() - actionTime > KL_READ_TIMEOUT) { state = KL_STATE_ERROR; break; }
 				if (klSerial->available() < 2) break;
 				if (klSerial->available() > 2 || klSerial->read() != PIDS[pidIndex]) {
 					state = KL_STATE_ERROR;
@@ -174,7 +181,7 @@ namespace KL {
 				state = KL_STATE_PID_START;
 				pidIndex++;
 				return true;
-				
+
 		}
 		return false;
 	}
