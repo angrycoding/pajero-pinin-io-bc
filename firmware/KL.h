@@ -45,6 +45,7 @@ namespace KL_private {
 	uint32_t actionTime;
 	uint8_t pidIndex;
 	bool connected;
+	uint8_t buffer[3];
 	SoftwareSerial *klSerial;
 
 	uint16_t rpm = 0;
@@ -150,10 +151,18 @@ namespace KL {
 			case KL_STATE_B5_END:
 				if (millis() - actionTime > KL_READ_TIMEOUT) { state = KL_STATE_ERROR; break; }
 				if (klSerial->available() < 3) break;
-				if (klSerial->available() > 3 || klSerial->read() != 0x55 || klSerial->read() != 0xEF || klSerial->read() != 0x85) {
+				if (klSerial->available() > 3) {
 					state = KL_STATE_ERROR;
 					break;
 				}
+
+				klSerial->readBytes(buffer, 3);
+
+				if (buffer[0] != 0x55 || buffer[1] != 0xEF || buffer[2] != 0x85) {
+					state = KL_STATE_ERROR;
+					break;
+				}
+
 				pidIndex = 0;
 				actionTime = 0;
 				connected = true;

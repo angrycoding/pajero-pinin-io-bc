@@ -81,6 +81,13 @@ void loop() {
 		Serial.print("KL_private::connected: ");
 		Serial.println(KL_private::connected);
 
+		Serial.print("KL_private::buffer: ");
+		for (uint8_t c = 0; c < 3; c++) {
+			if (c != 2)
+				Serial.print(KL_private::buffer[c], HEX);
+			else Serial.println(KL_private::buffer[c], HEX);
+		}
+
 		Serial.print("RPM: ");
 		Serial.println(KL::getRPM());
 
