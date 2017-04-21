@@ -53,10 +53,12 @@ void serialEvent() {
 void loop() {
 
 	wdt_reset();
+	bool xUpd = BC::update();
+	bool yUpd = KL::update();
 
-	if (BC::update()) {
+	if (xUpd || yUpd) {
 
-		Serial.print("TIME: ");
+		Serial.print("$TIME: ");
 		Serial.println(BC::getTime());
 
 		Serial.print("TEMPERATURE: ");
@@ -71,9 +73,7 @@ void loop() {
 		Serial.print("CONSUMPTION_L100KM: ");
 		Serial.println(BC::getConsumption());
 
-	}
 
-	if (KL::update()) {
 
 		Serial.print("RPM: ");
 		Serial.println(KL::getRPM());
