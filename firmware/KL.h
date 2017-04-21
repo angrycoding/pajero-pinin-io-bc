@@ -46,11 +46,11 @@ namespace KL_private {
 	uint8_t pidIndex;
 	SoftwareSerial *klSerial;
 
-	uint16_t rpm;
-	uint16_t speed;
-	uint16_t voltage;
-	uint16_t coolantTemp;
-	uint16_t throttlePosition;
+	uint16_t rpm = 0;
+	uint16_t speed = 0;
+	uint16_t voltage = 0;
+	uint16_t coolantTemp = 0;
+	uint16_t throttlePosition = 0;
 
 	uint8_t PIDS[] = {
 		KL_PID_VOLTAGE,
