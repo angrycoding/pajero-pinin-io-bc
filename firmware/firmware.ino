@@ -8,9 +8,9 @@
 // пин контроллирующий кнопку сброса
 #define PIN_BC_RESET 6
 // пин контроллирующий прием данных из K-line
-#define PIN_KL_RX 4
+#define PIN_KL_RX 5
 // пин контроллирующий отправку данных в K-line
-#define PIN_KL_TX 5
+#define PIN_KL_TX 4
 
 // интервал watch-dog таймера
 #define WDT_INTERVAL WDTO_1S
