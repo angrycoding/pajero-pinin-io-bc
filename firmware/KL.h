@@ -4,20 +4,22 @@
 #include <SoftwareSerial.h>
 
 #define KL_STATE_ERROR 0
-#define KL_STATE_B0_START 1
-#define KL_STATE_B0_END 2
-#define KL_STATE_B1_START 3
-#define KL_STATE_B1_END 4
-#define KL_STATE_B2_START 5
-#define KL_STATE_B2_END 6
-#define KL_STATE_B3_START 7
-#define KL_STATE_B3_END 8
-#define KL_STATE_B4_START 9
-#define KL_STATE_B4_END 10
-#define KL_STATE_B5_START 11
-#define KL_STATE_B5_END 12
-#define KL_STATE_PID_START 13
-#define KL_STATE_PID_END 14
+#define KL_STATE_RECONNECT_START 1
+#define KL_STATE_RECONNECT_END 2
+#define KL_STATE_B0_START 3
+#define KL_STATE_B0_END 4
+#define KL_STATE_B1_START 5
+#define KL_STATE_B1_END 6
+#define KL_STATE_B2_START 7
+#define KL_STATE_B2_END 8
+#define KL_STATE_B3_START 9
+#define KL_STATE_B3_END 10
+#define KL_STATE_B4_START 11
+#define KL_STATE_B4_END 12
+#define KL_STATE_B5_START 13
+#define KL_STATE_B5_END 14
+#define KL_STATE_PID_START 15
+#define KL_STATE_PID_END 16
 
 #define KL_PID_COOLANT_TEMP 0x10
 #define KL_PID_VOLTAGE 0x14
@@ -67,6 +69,15 @@ namespace KL {
 
 			case KL_STATE_ERROR:
 				klSerial->end();
+				state = KL_STATE_RECONNECT_START;
+
+			case KL_STATE_RECONNECT_START:
+				actionTime = millis();
+				state = KL_STATE_RECONNECT_END;
+				break;
+
+			case KL_STATE_RECONNECT_END:
+				if (millis() - actionTime < 3000) break;
 				state = KL_STATE_B0_START;
 
 			case KL_STATE_B0_START:
@@ -132,10 +143,13 @@ namespace KL {
 					break;
 				}
 				pidIndex = 0;
+				actionTime = 0;
 				state = KL_STATE_PID_START;
 
 			case KL_STATE_PID_START:
+				if (actionTime && (millis() - actionTime < 60)) break;
 				if (pidIndex == sizeof(PIDS)) pidIndex = 0;
+				while (klSerial->available()) klSerial->read();
 				klSerial->write(PIDS[pidIndex]);
 				actionTime = millis();
 				state = KL_STATE_PID_END;
@@ -156,10 +170,11 @@ namespace KL {
 					case KL_PID_RPM: rpm = klSerial->read(); rpm = uint16_t(rpm) * 31 + uint16_t(rpm) / 4; break;
 				}
 
+				actionTime = millis();
 				state = KL_STATE_PID_START;
 				pidIndex++;
 				return true;
-
+				
 		}
 		return false;
 	}
