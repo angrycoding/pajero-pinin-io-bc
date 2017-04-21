@@ -70,6 +70,26 @@ void loop() {
 
 		Serial.print("CONSUMPTION_L100KM: ");
 		Serial.println(BC::getConsumption());
+
+	}
+
+	if (KL::update()) {
+
+		Serial.print("RPM: ");
+		Serial.println(KL::getRPM());
+
+		Serial.print("SPEED: ");
+		Serial.println(KL::getSpeed());
+
+		Serial.print("VOLTAGE: ");
+		Serial.println(KL::getVoltage());
+
+		Serial.print("COOLANT_TEMP: ");
+		Serial.println(KL::getCoolantTemp());
+
+		Serial.print("THROTTLE_POSITION: ");
+		Serial.println(KL::getThrottlePosition());
+
 	}
 
 }
