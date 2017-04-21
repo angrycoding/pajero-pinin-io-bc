@@ -53,6 +53,7 @@ void serialEvent() {
 void loop() {
 
 	wdt_reset();
+
 	bool xUpd = BC::update();
 	bool yUpd = KL::update();
 
@@ -74,6 +75,11 @@ void loop() {
 		Serial.println(BC::getConsumption());
 
 
+		Serial.print("KL_private::state: ");
+		Serial.println(KL_private::state);
+
+		Serial.print("KL_private::connected: ");
+		Serial.println(KL_private::connected);
 
 		Serial.print("RPM: ");
 		Serial.println(KL::getRPM());

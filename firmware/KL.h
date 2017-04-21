@@ -44,6 +44,7 @@ namespace KL_private {
 	uint8_t state;
 	uint32_t actionTime;
 	uint8_t pidIndex;
+	bool connected;
 	SoftwareSerial *klSerial;
 
 	uint16_t rpm = 0;
@@ -66,6 +67,7 @@ namespace KL {
 
 	void init(uint8_t PIN_RX, uint8_t PIN_TX) {
 		using namespace KL_private;
+		connected = false;
 		state = KL_STATE_B0_START;
 		pinMode(KL_private::PIN_RX = PIN_RX, INPUT);
 		pinMode(KL_private::PIN_TX = PIN_TX, OUTPUT);
@@ -77,6 +79,7 @@ namespace KL {
 		switch (state) {
 
 			case KL_STATE_ERROR:
+				connected = false;
 				klSerial->end();
 				state = KL_STATE_RECONNECT_START;
 
@@ -153,6 +156,7 @@ namespace KL {
 				}
 				pidIndex = 0;
 				actionTime = 0;
+				connected = true;
 				state = KL_STATE_PID_START;
 
 			case KL_STATE_PID_START:
