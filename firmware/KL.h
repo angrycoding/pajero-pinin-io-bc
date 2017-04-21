@@ -21,6 +21,8 @@
 #define KL_STATE_PID_START 15
 #define KL_STATE_PID_END 16
 
+// скорость обмена после установки соединения
+#define KL_SERIAL_SPEED 15625
 // минимальная задержка перед новой попыткой подключения после ошибки
 #define KL_DELAY_RECONNECT 3000
 // минимальная задержка между PID запросами
@@ -138,7 +140,7 @@ namespace KL {
 				state = KL_STATE_B5_START;
 
 			case KL_STATE_B5_START:
-				klSerial->begin(15625);
+				klSerial->begin(KL_SERIAL_SPEED);
 				actionTime = millis();
 				state = KL_STATE_B5_END;
 
