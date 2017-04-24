@@ -1,28 +1,36 @@
 #ifndef KL_h
 #define KL_h
 
+#include <Arduino.h>
 #include <SoftwareSerial.h>
 
 #define KL_STATE_ERROR 0
 #define KL_STATE_RECONNECT_START 1
 #define KL_STATE_RECONNECT_END 2
-#define KL_STATE_B0_START 3
-#define KL_STATE_B0_END 4
-#define KL_STATE_B1_START 5
-#define KL_STATE_B1_END 6
-#define KL_STATE_B2_START 7
-#define KL_STATE_B2_END 8
-#define KL_STATE_B3_START 9
-#define KL_STATE_B3_END 10
-#define KL_STATE_B4_START 11
-#define KL_STATE_B4_END 12
-#define KL_STATE_B5_START 13
-#define KL_STATE_B5_END 14
-#define KL_STATE_PID_START 15
-#define KL_STATE_PID_END 16
+
+#define KL_STATE_INIT_START 3
+#define KL_STATE_INIT_END 4
+
+#define KL_STATE_STARTBIT_START 5
+#define KL_STATE_STARTBIT_END 6
+
+#define KL_STATE_ADDRESS_START 7
+#define KL_STATE_ADDRESS_END 8
+
+#define KL_STATE_STOPBIT_START 9
+#define KL_STATE_STOPBIT_END 10
+
+#define KL_STATE_RESPWAIT_START 11
+#define KL_STATE_RESPWAIT_END 12
+
+#define KL_STATE_SEND_KW2_BEGIN 13
+#define KL_STATE_SEND_KW2_END 14
+#define KL_STATE_WAIT_CC 15
 
 // скорость обмена после установки соединения
-#define KL_SERIAL_SPEED 15625
+#define KL_SERIAL_SPEED 10400
+// адрес ECU
+#define KL_ECU_ADDRESS 0x33
 // минимальная задержка перед новой попыткой подключения после ошибки
 #define KL_DELAY_RECONNECT 3000
 // минимальная задержка между PID запросами
@@ -43,8 +51,8 @@ namespace KL_private {
 	uint8_t PIN_TX;
 	uint8_t state;
 	uint32_t actionTime;
+	uint8_t bitIndex;
 	uint8_t pidIndex;
-	bool connected;
 	uint8_t buffer[3];
 	SoftwareSerial *klSerial;
 
@@ -68,11 +76,11 @@ namespace KL {
 
 	void init(uint8_t PIN_RX, uint8_t PIN_TX) {
 		using namespace KL_private;
-		connected = false;
-		state = KL_STATE_B0_START;
+		state = KL_STATE_RECONNECT_START;
 		pinMode(KL_private::PIN_RX = PIN_RX, INPUT);
 		pinMode(KL_private::PIN_TX = PIN_TX, OUTPUT);
 		klSerial = new SoftwareSerial(PIN_RX, PIN_TX);
+		digitalWrite(PIN_TX, HIGH);
 	}
 
 	bool update() {
@@ -80,93 +88,166 @@ namespace KL {
 		switch (state) {
 
 			case KL_STATE_ERROR:
-				connected = false;
 				klSerial->end();
 				state = KL_STATE_RECONNECT_START;
 
 			case KL_STATE_RECONNECT_START:
+				digitalWrite(PIN_TX, LOW);
 				actionTime = millis();
 				state = KL_STATE_RECONNECT_END;
 				break;
 
 			case KL_STATE_RECONNECT_END:
 				if (millis() - actionTime < KL_DELAY_RECONNECT) break;
-				state = KL_STATE_B0_START;
+				state = KL_STATE_INIT_START;
 
-			case KL_STATE_B0_START:
+			// drive K-line HIGH for 300ms
+
+			case KL_STATE_INIT_START:
 				digitalWrite(PIN_TX, HIGH);
 				actionTime = millis();
-				state = KL_STATE_B0_END;
+				state = KL_STATE_INIT_END;
 				break;
 
-			case KL_STATE_B0_END:
-				if (millis() - actionTime < 300) break;
-				state = KL_STATE_B1_START;
+			case KL_STATE_INIT_END:
+				if (millis() - actionTime < 305) break;
+				state = KL_STATE_STARTBIT_START;
 
-			case KL_STATE_B1_START:
+			// send startbit
+
+			case KL_STATE_STARTBIT_START:
 				digitalWrite(PIN_TX, LOW);
 				actionTime = millis();
-				state = KL_STATE_B1_END;
+				state = KL_STATE_STARTBIT_END;
 				break;
 
-			case KL_STATE_B1_END:
-				if (millis() - actionTime < 200) break;
-				state = KL_STATE_B2_START;
+			case KL_STATE_STARTBIT_END:
+				if (millis() - actionTime < 205) break;
+				state = KL_STATE_ADDRESS_START;
+				bitIndex = 0;
 
-			case KL_STATE_B2_START:
+			// send ECU address
+
+			case KL_STATE_ADDRESS_START:
+				digitalWrite(PIN_TX, bitRead(KL_ECU_ADDRESS, bitIndex));
+				actionTime = millis();
+				state = KL_STATE_ADDRESS_END;
+				break;
+
+			case KL_STATE_ADDRESS_END:
+				if (millis() - actionTime < 205) break;
+				if (++bitIndex < 8) { state = KL_STATE_ADDRESS_START; break; }
+				state = KL_STATE_STOPBIT_START;
+
+			// send stopbit
+
+			case KL_STATE_STOPBIT_START:
 				digitalWrite(PIN_TX, HIGH);
 				actionTime = millis();
-				state = KL_STATE_B2_END;
+				state = KL_STATE_STOPBIT_END;
 				break;
 
-			case KL_STATE_B2_END:
-				if (millis() - actionTime < 200) break;
-				state = KL_STATE_B3_START;
+			case KL_STATE_STOPBIT_END:
+				if (millis() - actionTime < 205) break;
+				state = KL_STATE_RESPWAIT_START;
 
-			case KL_STATE_B3_START:
-				digitalWrite(PIN_TX, LOW);
-				actionTime = millis();
-				state = KL_STATE_B3_END;
-				break;
 
-			case KL_STATE_B3_END:
-				if (millis() - actionTime < 1400) break;
-				state = KL_STATE_B4_START;
-
-			case KL_STATE_B4_START:
-				digitalWrite(PIN_TX, HIGH);
-				actionTime = millis();
-				state = KL_STATE_B4_END;
-				break;
-
-			case KL_STATE_B4_END:
-				if (millis() - actionTime < 200) break;
-				state = KL_STATE_B5_START;
-
-			case KL_STATE_B5_START:
+			case KL_STATE_RESPWAIT_START:
 				klSerial->begin(KL_SERIAL_SPEED);
 				actionTime = millis();
-				state = KL_STATE_B5_END;
+				state = KL_STATE_RESPWAIT_END;
 
-			case KL_STATE_B5_END:
-				if (millis() - actionTime > KL_READ_TIMEOUT) { state = KL_STATE_ERROR; break; }
+			case KL_STATE_RESPWAIT_END:
+
+				if (millis() - actionTime > KL_READ_TIMEOUT) {
+					Serial.println("KL_STATE_RESPWAIT_END TIMEOUT");
+					Serial.print("available = ");
+					Serial.println(klSerial->available());
+					while (klSerial->available())
+						Serial.println(klSerial->read(), HEX);
+					state = KL_STATE_ERROR;
+					break;
+				}
+
 				if (klSerial->available() < 3) break;
+
 				if (klSerial->available() > 3) {
+					Serial.println("KL_STATE_RESPWAIT_END > 3");
+					Serial.print("available = ");
+					while (klSerial->available())
+						Serial.println(klSerial->read(), HEX);
 					state = KL_STATE_ERROR;
 					break;
 				}
 
 				klSerial->readBytes(buffer, 3);
 
-				if (buffer[0] != 0x55 || buffer[1] != 0xEF || buffer[2] != 0x85) {
+				if (buffer[0] != 0x55 || buffer[1] != 0x08 || buffer[2] != 0x08) {
+					Serial.println("KL_STATE_RESPWAIT_END mismatch");
+					for (uint8_t c = 0; c < 3; c++)
+						Serial.println(buffer[c], HEX);
 					state = KL_STATE_ERROR;
 					break;
 				}
 
-				pidIndex = 0;
-				actionTime = 0;
-				connected = true;
-				state = KL_STATE_PID_START;
+				state = KL_STATE_SEND_KW2_BEGIN;
+
+			case KL_STATE_SEND_KW2_BEGIN:
+				actionTime = millis();
+				state = KL_STATE_SEND_KW2_END;
+				break;
+
+			case KL_STATE_SEND_KW2_END:
+				if (millis() - actionTime < 28) break;
+				klSerial->write(0xF7);
+				actionTime = millis();
+				state = KL_STATE_WAIT_CC;
+				break;
+
+
+			case KL_STATE_WAIT_CC:
+
+				if (millis() - actionTime > KL_READ_TIMEOUT) {
+					Serial.println("KL_STATE_WAIT_CC TIMEOUT");
+					Serial.print("available = ");
+					Serial.println(klSerial->available());
+					while (klSerial->available())
+						Serial.println(klSerial->read(), HEX);
+					state = KL_STATE_ERROR;
+					break;
+				}
+
+				if (klSerial->available() < 1) break;
+
+				if (klSerial->available() > 1) {
+					Serial.println("KL_STATE_WAIT_CC > 1");
+					Serial.print("available = ");
+					while (klSerial->available())
+						Serial.println(klSerial->read(), HEX);
+					state = KL_STATE_ERROR;
+					break;
+				}
+
+				if (klSerial->peek() != 0xCC) {
+					Serial.println("KL_STATE_WAIT_CC != 0xCC");
+					Serial.print("available = ");
+					while (klSerial->available())
+						Serial.println(klSerial->read(), HEX);
+					state = KL_STATE_ERROR;
+				}
+
+				klSerial->read();
+
+
+				break;
+
+
+			/*
+
+
+
+
+
 
 			case KL_STATE_PID_START:
 				if (actionTime && (millis() - actionTime < KL_DELAY_NEXT_PID)) break;
@@ -197,6 +278,8 @@ namespace KL {
 				pidIndex++;
 				return true;
 
+			*/
+
 		}
 		return false;
 	}
@@ -224,103 +307,6 @@ namespace KL {
 	uint16_t getThrottlePosition() {
 		using namespace KL_private;
 		return throttlePosition;
-	}
-
-	void connect() {
-		using namespace KL_private;
-
-		// wakeup
-		digitalWrite(PIN_TX, HIGH);
-		delay(300);
-
-		// startbit
-		digitalWrite(PIN_TX, LOW);
-		delay(200);
-
-		// bit0
-		digitalWrite(PIN_TX, HIGH);
-		delay(200);
-
-		// bit1
-		digitalWrite(PIN_TX, LOW);
-		delay(200);
-
-		// bit2
-		digitalWrite(PIN_TX, LOW);
-		delay(200);
-
-		// bit3
-		digitalWrite(PIN_TX, LOW);
-		delay(200);
-
-		// bit4
-		digitalWrite(PIN_TX, LOW);
-		delay(200);
-
-		// bit5
-		digitalWrite(PIN_TX, LOW);
-		delay(200);
-
-		// bit6
-		digitalWrite(PIN_TX, LOW);
-		delay(200);
-
-		// bit7
-		digitalWrite(PIN_TX, LOW);
-		delay(200);
-
-		// stopbit
-		digitalWrite(PIN_TX, HIGH);
-		delay(200);
-
-
-		klSerial->begin(15625);
-
-		uint32_t time = millis();
-		uint8_t position = 0;
-		bool success = true;
-
-		for (;;) {
-			if (millis() - time > 3000) break;
-			while (klSerial->available()) {
-				uint8_t value = klSerial->read();
-				switch (position++) {
-					case 0: if (value != 0xC0) success = false; break;
-					case 1: if (value != 0x55) success = false; break;
-					case 2: if (value != 0xEF) success = false; break;
-					case 3: if (value != 0x85) success = false; break;
-					default: success = false;
-				}
-				Serial.println(value, HEX);
-			}
-		}
-
-		if (success) {
-			delay(60);
-			position = 0;
-			time = millis();
-			int voltage = 0;
-
-			// voltage
-			klSerial->write(0x14);
-
-			for (;;) {
-				if (millis() - time > 3000) break;
-				while (klSerial->available()) {
-					uint8_t value = klSerial->read();
-					if (position == 1) voltage = int(value) * 73 / 100;
-					position++;
-					Serial.println(value, HEX);
-				}
-			}
-
-			Serial.print("VOLTAGE = ");
-			Serial.println(voltage);
-
-		}
-
-		klSerial->end();
-
 	}
 
 }
