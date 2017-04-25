@@ -8,17 +8,7 @@
 #define KL_STATE_RECONNECT_START 1
 #define KL_STATE_RECONNECT_END 2
 
-#define KL_STATE_INIT_START 3
-#define KL_STATE_INIT_END 4
-
-#define KL_STATE_STARTBIT_START 5
-#define KL_STATE_STARTBIT_END 6
-
-#define KL_STATE_ADDRESS_START 7
-#define KL_STATE_ADDRESS_END 8
-
-#define KL_STATE_STOPBIT_START 9
-#define KL_STATE_STOPBIT_END 10
+#define KL_STATE_BITBANG 3
 
 #define KL_STATE_RESPWAIT_START 11
 #define KL_STATE_RESPWAIT_END 12
@@ -70,6 +60,53 @@ namespace KL_private {
 		KL_PID_THROTTLE
 	};
 
+	bool bitBangSendBit(bool value, uint8_t duration) {
+		static uint32_t time = 0;
+		if (time == 0) {
+			digitalWrite(PIN_TX, value);
+			time = millis();
+		} else if (millis() - time >= duration) {
+			time = 0;
+			return true;
+		}
+		return false;
+	}
+
+	bool bitBang() {
+		static uint8_t state = 9;
+		switch (state) {
+
+			// drive K-line HIGH for 300ms
+			case 9:
+				if (!bitBangSendBit(HIGH, 305)) break;
+				state = 10;
+
+			// send startbit
+			case 10:
+				if (!bitBangSendBit(LOW, 205)) break;
+				state = 0;
+
+			// send ECU address
+			case 0:
+			case 1:
+			case 2:
+			case 3:
+			case 4:
+			case 5:
+			case 6:
+			case 7:
+				if (!bitBangSendBit(KL_ECU_ADDRESS & 1 << state, 205) || ++state != 8) break;
+
+			// send stopbit
+			case 8:
+				if (!bitBangSendBit(HIGH, 205)) break;
+				state = 9;
+				return true;
+
+		}
+		return false;
+	}
+
 }
 
 namespace KL {
@@ -99,58 +136,11 @@ namespace KL {
 
 			case KL_STATE_RECONNECT_END:
 				if (millis() - actionTime < KL_DELAY_RECONNECT) break;
-				state = KL_STATE_INIT_START;
+				state = KL_STATE_BITBANG;
 
-			// drive K-line HIGH for 300ms
-
-			case KL_STATE_INIT_START:
-				digitalWrite(PIN_TX, HIGH);
-				actionTime = millis();
-				state = KL_STATE_INIT_END;
-				break;
-
-			case KL_STATE_INIT_END:
-				if (millis() - actionTime < 305) break;
-				state = KL_STATE_STARTBIT_START;
-
-			// send startbit
-
-			case KL_STATE_STARTBIT_START:
-				digitalWrite(PIN_TX, LOW);
-				actionTime = millis();
-				state = KL_STATE_STARTBIT_END;
-				break;
-
-			case KL_STATE_STARTBIT_END:
-				if (millis() - actionTime < 205) break;
-				state = KL_STATE_ADDRESS_START;
-				bitIndex = 0;
-
-			// send ECU address
-
-			case KL_STATE_ADDRESS_START:
-				digitalWrite(PIN_TX, bitRead(KL_ECU_ADDRESS, bitIndex));
-				actionTime = millis();
-				state = KL_STATE_ADDRESS_END;
-				break;
-
-			case KL_STATE_ADDRESS_END:
-				if (millis() - actionTime < 205) break;
-				if (++bitIndex < 8) { state = KL_STATE_ADDRESS_START; break; }
-				state = KL_STATE_STOPBIT_START;
-
-			// send stopbit
-
-			case KL_STATE_STOPBIT_START:
-				digitalWrite(PIN_TX, HIGH);
-				actionTime = millis();
-				state = KL_STATE_STOPBIT_END;
-				break;
-
-			case KL_STATE_STOPBIT_END:
-				if (millis() - actionTime < 205) break;
+			case KL_STATE_BITBANG:
+				if (!bitBang()) break;
 				state = KL_STATE_RESPWAIT_START;
-
 
 			case KL_STATE_RESPWAIT_START:
 				klSerial->begin(KL_SERIAL_SPEED);
