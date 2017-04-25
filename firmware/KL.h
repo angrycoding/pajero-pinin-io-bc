@@ -73,18 +73,18 @@ namespace KL_private {
 	}
 
 	bool bitBang() {
-		static uint8_t state = 9;
+		static int8_t state = -2;
 		switch (state) {
 
 			// drive K-line HIGH for 300ms
-			case 9:
+			case -2:
 				if (!bitBangSendBit(HIGH, 305)) break;
-				state = 10;
+				state++;
 
 			// send startbit
-			case 10:
+			case -1:
 				if (!bitBangSendBit(LOW, 205)) break;
-				state = 0;
+				state++;
 
 			// send ECU address
 			case 0:
@@ -100,7 +100,7 @@ namespace KL_private {
 			// send stopbit
 			case 8:
 				if (!bitBangSendBit(HIGH, 205)) break;
-				state = 9;
+				state = -2;
 				return true;
 
 		}
