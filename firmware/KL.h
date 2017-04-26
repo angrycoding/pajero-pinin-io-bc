@@ -112,23 +112,59 @@ namespace KL_private {
 
 			case 1:
 				// first byte should come within 60ms..300ms
-				if (millis() - time > 300) break;
+				if (millis() - time > 3000) {
+					Serial.println("FIRST_BYTE_TIMEOUT");
+					Serial.print("available = ");
+					Serial.println(klSerial->available());
+					while (klSerial->available())
+						Serial.println(klSerial->read(), HEX);
+					break;
+				}
 				if (!klSerial->available()) return 0;
-				if (klSerial->read() != 0x55) break;
+				if (klSerial->peek() != 0x55) {
+					Serial.println("FIRST_BYTE_MISMATCH");
+					Serial.print("got = ");
+					Serial.println(klSerial->read(), HEX);
+					break;
+				} else klSerial->read();
 				time = millis(), state = 2;
 
 			case 2:
 				// second byte should come within 5ms..20ms
-				if (millis() - time > 20) break;
+				if (millis() - time > 200) {
+					Serial.println("SECOND_BYTE_TIMEOUT");
+					Serial.print("available = ");
+					Serial.println(klSerial->available());
+					while (klSerial->available())
+						Serial.println(klSerial->read(), HEX);
+					break;
+				}
 				if (!klSerial->available()) return 0;
-				if (klSerial->read() != 0xEF) break;
+				if (klSerial->peek() != 0xEF) {
+					Serial.println("SECOND_BYTE_MISMATCH");
+					Serial.print("got = ");
+					Serial.println(klSerial->read(), HEX);
+					break;
+				} else klSerial->read();
 				time = millis(), state = 3;
 
 			case 3:
 				// third byte should come within 0ms..20ms
-				if (millis() - time > 20) break;
+				if (millis() - time > 200) {
+					Serial.println("THIRD_BYTE_TIMEOUT");
+					Serial.print("available = ");
+					Serial.println(klSerial->available());
+					while (klSerial->available())
+						Serial.println(klSerial->read(), HEX);
+					break;
+				}
 				if (!klSerial->available()) return 0;
-				if (klSerial->read() != 0x85) break;
+				if (klSerial->peek() != 0x85) {
+					Serial.println("THIRD_BYTE_MISMATCH");
+					Serial.print("got = ");
+					Serial.println(klSerial->read(), HEX);
+					break;
+				} else klSerial->read();
 				state = 0;
 				return 1;
 
@@ -152,14 +188,45 @@ namespace KL_private {
 
 			case 1:
 				// wait for the first byte to come ?ms
-				if (millis() - time > 130) { state = 0; return -1; }
+				if (millis() - time > 130) {
+					Serial.println("doPIDRequest, first byte timeout");
+					Serial.print("available = ");
+					Serial.println(klSerial->available());
+					while (klSerial->available())
+						Serial.println(klSerial->read(), HEX);
+					state = 0;
+					return -1;
+				}
 				if (!klSerial->available()) return 0;
-				if (klSerial->read() != pid) { state = 0; return -1; }
+				klSerial->read();
+				/*
+				xx
+				if (klSerial->peek() != pid) {
+					Serial.println("doPIDRequest, first byte mismatch");
+					Serial.print("expected = ");
+					Serial.println(pid);
+					Serial.print("got = ");
+					Serial.println(klSerial->read());
+					Serial.println("leftover = ");
+					while (klSerial->available())
+						Serial.println(klSerial->read(), HEX);
+					state = 0;
+					return -1;
+				} else klSerial->read();
+				*/
 				time = millis(), state = 2;
 
 			case 2:
 				// wait for the second byte to come ?ms
-				if (millis() - time > 130) { state = 0; return -1; }
+				if (millis() - time > 130) {
+					Serial.println("doPIDRequest, second byte timeout");
+					Serial.print("available = ");
+					Serial.println(klSerial->available());
+					while (klSerial->available())
+						Serial.println(klSerial->read(), HEX);
+					state = 0;
+					return -1;
+				}
 				if (!klSerial->available()) return 0;
 				pidResponse = klSerial->read();
 				time = millis();
