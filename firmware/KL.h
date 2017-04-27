@@ -32,10 +32,24 @@
 #define KL_PID_IPW 0x29
 // текущая скорость
 #define KL_PID_SPEED 0x2F
-// какая то температура
-#define KL_PID_X_TEMP 0x3A
 // какой то барометр
-#define KL_PID_X_BARO 0x15
+#define KL_PID_BAROMETER 0x15
+// какая то температура
+#define KL_PID_TEMPERATURE 0x3A
+
+// проверить
+#define KL_PID_39 0x39
+#define KL_PID_49 0x49
+#define KL_PID_84 0x84
+#define KL_PID_87 0x87
+#define KL_PID_88 0x88
+#define KL_PID_9A 0x9A
+#define KL_PID_A8 0xA8
+#define KL_PID_AA 0xAA
+#define KL_PID_B3 0xB3
+#define KL_PID_B4 0xB4
+#define KL_PID_B8 0xB8
+
 
 
 namespace KL_private {
@@ -48,25 +62,52 @@ namespace KL_private {
 
 	uint8_t PIDS[] = {
 		KL_PID_COOLANT_TEMP,
-		KL_PID_INTAKE_AIR,
 		KL_PID_VOLTAGE,
-		KL_PID_THROTTLE,
 		KL_PID_RPM,
-		KL_PID_IPW,
 		KL_PID_SPEED,
-		KL_PID_X_TEMP,
-		KL_PID_X_BARO
+		KL_PID_INTAKE_AIR,
+		KL_PID_THROTTLE,
+		KL_PID_IPW,
+		KL_PID_BAROMETER,
+		KL_PID_TEMPERATURE,
+
+		KL_PID_39,
+		KL_PID_49,
+		KL_PID_84,
+		KL_PID_87,
+		KL_PID_88,
+		KL_PID_9A,
+		KL_PID_A8,
+		KL_PID_AA,
+		KL_PID_B3,
+		KL_PID_B4,
+		KL_PID_B8
 	};
 
-	float rpm = INFINITY;
-	float speed = INFINITY;
-	float xTemp = INFINITY;
-	float xBaro = INFINITY;
-	float coolantTemp = INFINITY;
-	float intakeAirTemp = INFINITY;
-	float injPulseWidth = INFINITY;
-	float batteryVoltage = INFINITY;
-	float throttlePosition = INFINITY;
+	uint16_t rpm = 0;
+	uint16_t speed = 0;
+	float barometer = 0;
+	int16_t coolantTemp = 0;
+	int8_t ambientTemp = 0;
+	float batteryVoltage = 0;
+	float injPulseWidth = 0;
+	int16_t intakeAirTemp = 0;
+	uint8_t throttlePosition = 0;
+
+	uint8_t pid39 = 0;
+	uint8_t pid49 = 0;
+	uint8_t pid84 = 0;
+	uint8_t pid87 = 0;
+	uint8_t pid88 = 0;
+	uint8_t pid9A = 0;
+	uint8_t pidA8 = 0;
+	uint8_t pidAA = 0;
+	uint8_t pidB3 = 0;
+	uint8_t pidB4 = 0;
+	uint8_t pidB8 = 0;
+
+
+
 
 	int8_t asyncDelay(uint32_t delay) {
 		static uint32_t time = 0;
@@ -98,13 +139,39 @@ namespace KL_private {
 		return (available == count ? 1 : -1);
 	}
 
+	void updatePIDValue(uint8_t pid, uint8_t value) {
+		switch (pid) {
+			case KL_PID_RPM: rpm = round(31.25 * value); break;
+			case KL_PID_SPEED: speed = (value * 2); break;
+			case KL_PID_COOLANT_TEMP: coolantTemp = (value - 40); break;
+			case KL_PID_VOLTAGE: batteryVoltage = round(value * 10) / 10; break;
+			case KL_PID_IPW: injPulseWidth = (value / 1000); break;
+			case KL_PID_INTAKE_AIR: intakeAirTemp = (value - 40); break;
+			case KL_PID_THROTTLE: throttlePosition = round(value * 100 / 255); break;
+			case KL_PID_BAROMETER: barometer = round(0.49 * value * 100) / 100; break;
+			case KL_PID_TEMPERATURE: ambientTemp = (value - 40); break;
+
+			case KL_PID_39: pid39 = value; break;
+			case KL_PID_49: pid49 = value; break;
+			case KL_PID_84: pid84 = value; break;
+			case KL_PID_87: pid87 = value; break;
+			case KL_PID_88: pid88 = value; break;
+			case KL_PID_9A: pid9A = value; break;
+			case KL_PID_A8: pidA8 = value; break;
+			case KL_PID_AA: pidAA = value; break;
+			case KL_PID_B3: pidB3 = value; break;
+			case KL_PID_B4: pidB4 = value; break;
+			case KL_PID_B8: pidB8 = value; break;
+		}
+	}
+
 	bool mutLoop() {
 
 		switch (state) {
 
 			// delay for reconnection after error
 			case -3:
-				if (asyncDelay(KL_RECONNECT_DELAY) < 1) return false;
+				if (!asyncDelay(KL_RECONNECT_DELAY) < 1) return false;
 				state++;
 
 			// before the initialization, the line K shall be logic "1" for the time period W0 (2ms..INF)
@@ -161,17 +228,7 @@ namespace KL_private {
 
 			case 12:
 				klSerial->read();
-				switch (PIDS[pidIndex++]) {
-					case KL_PID_RPM: rpm = klSerial->read(); break;
-					case KL_PID_SPEED: speed = klSerial->read(); break;
-					case KL_PID_IPW: injPulseWidth = klSerial->read(); break;
-					case KL_PID_VOLTAGE: batteryVoltage = klSerial->read(); break;
-					case KL_PID_INTAKE_AIR: intakeAirTemp = klSerial->read(); break;
-					case KL_PID_COOLANT_TEMP: coolantTemp = klSerial->read(); break;
-					case KL_PID_THROTTLE: throttlePosition = klSerial->read(); break;
-					case KL_PID_X_TEMP: xTemp = klSerial->read(); break;
-					case KL_PID_X_BARO: xBaro = klSerial->read(); break;
-				}
+				updatePIDValue(PIDS[pidIndex++], klSerial->read());
 				state = 10;
 				return true;
 

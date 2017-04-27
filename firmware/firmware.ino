@@ -70,26 +70,61 @@ void loop() {
 		Serial.print("SPEED: ");
 		Serial.println(KL_private::speed);
 
+		Serial.print("barometer: ");
+		Serial.println(KL_private::barometer);
+
 		Serial.print("COOLANT: ");
 		Serial.println(KL_private::coolantTemp);
 
-		Serial.print("INTAKE_AIR_TEMP: ");
-		Serial.println(KL_private::intakeAirTemp);
-
-		Serial.print("INJ_PULSE_WIDTH: ");
-		Serial.println(KL_private::injPulseWidth);
+		Serial.print("ambientTemp: ");
+		Serial.println(KL_private::ambientTemp);
 
 		Serial.print("BATTERY_VOLTAGE: ");
 		Serial.println(KL_private::batteryVoltage);
 
+		Serial.print("INJ_PULSE_WIDTH: ");
+		Serial.println(KL_private::injPulseWidth);
+
+		Serial.print("INTAKE_AIR_TEMP: ");
+		Serial.println(KL_private::intakeAirTemp);
+
 		Serial.print("THROTTLE_POSITION: ");
 		Serial.println(KL_private::throttlePosition);
 
-		Serial.print("X_TEMP: ");
-		Serial.println(KL_private::xTemp);
 
-		Serial.print("X_BARO: ");
-		Serial.println(KL_private::xBaro);
+		Serial.print("pid39: ");
+		Serial.println(KL_private::pid39);
+
+		Serial.print("pid49: ");
+		Serial.println(KL_private::pid49);
+
+		Serial.print("pid84: ");
+		Serial.println(KL_private::pid84);
+
+		Serial.print("pid87: ");
+		Serial.println(KL_private::pid87);
+
+		Serial.print("pid88: ");
+		Serial.println(KL_private::pid88);
+
+		Serial.print("pid9A: ");
+		Serial.println(KL_private::pid9A);
+
+		Serial.print("pidA8: ");
+		Serial.println(KL_private::pidA8);
+
+		Serial.print("pidAA: ");
+		Serial.println(KL_private::pidAA);
+
+		Serial.print("pidB3: ");
+		Serial.println(KL_private::pidB3);
+
+		Serial.print("pidB4: ");
+		Serial.println(KL_private::pidB4);
+
+		Serial.print("pidB8: ");
+		Serial.println(KL_private::pidB8);
+
 
 	}
 
