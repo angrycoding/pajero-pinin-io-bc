@@ -4,80 +4,117 @@
 #include <Arduino.h>
 #include <SoftwareSerial.h>
 
-#define KL_STATE_ERROR 0
-#define KL_STATE_BITBANG 1
-#define KL_STATE_SYNC 2
-#define KL_STATE_GETPID 3
-
-// скорость обмена после установки соединения
-#define KL_SERIAL_SPEED 15625
 // адрес ECU
 #define KL_ECU_ADDRESS 0x00
+// скорость обмена
+#define KL_SERIAL_SPEED 15625
+// задержка перед попыткой установки соединения после ошибки
+#define KL_RECONNECT_DELAY 5000
+// время удержания "1" перед посылкой адреса
+#define KL_INIT_DELAY 2
+// задержка между посылками отдельных битов на скорости 5 бит/с
+#define KL_INTERBIT_DELAY 200
+// таймаут ожидания ответа от ЭБУ
+#define KL_RESPONSE_TIMEOUT 300
 
+
+// температура охлаждающей жидкости
 #define KL_PID_COOLANT_TEMP 0x10
+// температура воздуха на впуске
+#define KL_PID_INTAKE_AIR 0x11
+// напряжение аккумулятора
 #define KL_PID_VOLTAGE 0x14
+// положение дроссельной заслонки
 #define KL_PID_THROTTLE 0x17
+// обороты двигателя
 #define KL_PID_RPM 0x21
+// длительность впрыска
+#define KL_PID_IPW 0x29
+// текущая скорость
 #define KL_PID_SPEED 0x2F
+// какая то температура
+#define KL_PID_X_TEMP 0x3A
+// какой то барометр
+#define KL_PID_X_BARO 0x15
 
 
 namespace KL_private {
 
 	uint8_t PIN_RX;
 	uint8_t PIN_TX;
-	uint8_t state;
-	uint8_t pidIndex;
-	uint8_t pidResponse;
+	int8_t state = -2;
+	uint8_t pidIndex = 0;
 	SoftwareSerial *klSerial;
 
-
-
 	uint8_t PIDS[] = {
-		KL_PID_VOLTAGE,
 		KL_PID_COOLANT_TEMP,
+		KL_PID_INTAKE_AIR,
+		KL_PID_VOLTAGE,
+		KL_PID_THROTTLE,
 		KL_PID_RPM,
+		KL_PID_IPW,
 		KL_PID_SPEED,
-		KL_PID_THROTTLE
+		KL_PID_X_TEMP,
+		KL_PID_X_BARO
 	};
 
+	float rpm = INFINITY;
+	float speed = INFINITY;
+	float xTemp = INFINITY;
+	float xBaro = INFINITY;
+	float coolantTemp = INFINITY;
+	float intakeAirTemp = INFINITY;
+	float injPulseWidth = INFINITY;
+	float batteryVoltage = INFINITY;
+	float throttlePosition = INFINITY;
 
-	uint16_t rpm = 0;
-	uint16_t speed = 0;
-	uint16_t voltage = 0;
-	uint16_t coolantTemp = 0;
-	uint16_t throttlePosition = 0;
-
-
-
-	bool sendBit(bool value, uint32_t duration) {
+	int8_t asyncDelay(uint32_t delay) {
 		static uint32_t time = 0;
 		if (time == 0) {
-			digitalWrite(PIN_TX, value);
 			time = millis();
-		} else if (millis() - time >= duration) {
+			return -1;
+		} else if (millis() - time >= delay) {
 			time = 0;
-			return true;
+			return 1;
 		}
-		return false;
+		return 0;
 	}
 
-	bool bitBang(bool wait3s) {
-		static int8_t state = -3;
+	bool sendBit(bool value, uint32_t duration) {
+		switch (asyncDelay(duration)) {
+			case -1: digitalWrite(PIN_TX, value);
+			case 0: return false;
+			case 1: return true;
+		}
+	}
+
+	int8_t waitForBytes(uint8_t count) {
+		static uint32_t time = 0;
+		if (time == 0) time = millis();
+		if (millis() - time > KL_RESPONSE_TIMEOUT) { time = 0; return -1; }
+		uint8_t available = klSerial->available();
+		if (available < count) return 0;
+		time = 0;
+		return (available == count ? 1 : -1);
+	}
+
+	bool mutLoop() {
+
 		switch (state) {
 
-			// keep K-line LOW for 3s
+			// delay for reconnection after error
 			case -3:
-				if (wait3s && !sendBit(LOW, 3000)) break;
+				if (asyncDelay(KL_RECONNECT_DELAY) < 1) return false;
 				state++;
 
-			// drive K-line HIGH for 300ms
+			// before the initialization, the line K shall be logic "1" for the time period W0 (2ms..INF)
 			case -2:
-				if (!sendBit(HIGH, 305)) break;
+				if (!sendBit(HIGH, KL_INIT_DELAY)) return false;
 				state++;
 
 			// send startbit
 			case -1:
-				if (!sendBit(LOW, 205)) break;
+				if (!sendBit(LOW, KL_INTERBIT_DELAY)) return false;
 				state++;
 
 			// send ECU address
@@ -89,162 +126,58 @@ namespace KL_private {
 			case 5:
 			case 6:
 			case 7:
-				if (!sendBit(KL_ECU_ADDRESS & 1 << state, 205) || ++state != 8) break;
+				if (!sendBit(KL_ECU_ADDRESS & 1 << state, KL_INTERBIT_DELAY) || ++state != 8) return false;
 
 			// send stopbit
 			case 8:
-				if (!sendBit(HIGH, 205)) break;
-				state = -3;
+				if (!sendBit(HIGH, KL_INTERBIT_DELAY)) return false;
+				while (klSerial->available()) klSerial->read();
+				state++;
+
+			case 9: switch (waitForBytes(3)) {
+				case 1:
+					if (klSerial->read() == 0x55 &&
+						klSerial->read() == 0xEF &&
+						klSerial->read() == 0x85) {
+						state++;
+						pidIndex = 0;
+						break;
+					}
+				case -1: state = -3;
+				case 0: return false;
+			}
+
+			case 10:
+				if (pidIndex == sizeof(PIDS))
+					pidIndex = 0;
+				klSerial->write(PIDS[pidIndex]);
+				state++;
+
+			case 11: switch (waitForBytes(2)) {
+				case 1: state++; break;
+				case -1: state = -3;
+				case 0: return false;
+			}
+
+			case 12:
+				klSerial->read();
+				switch (PIDS[pidIndex++]) {
+					case KL_PID_RPM: rpm = klSerial->read(); break;
+					case KL_PID_SPEED: speed = klSerial->read(); break;
+					case KL_PID_IPW: injPulseWidth = klSerial->read(); break;
+					case KL_PID_VOLTAGE: batteryVoltage = klSerial->read(); break;
+					case KL_PID_INTAKE_AIR: intakeAirTemp = klSerial->read(); break;
+					case KL_PID_COOLANT_TEMP: coolantTemp = klSerial->read(); break;
+					case KL_PID_THROTTLE: throttlePosition = klSerial->read(); break;
+					case KL_PID_X_TEMP: xTemp = klSerial->read(); break;
+					case KL_PID_X_BARO: xBaro = klSerial->read(); break;
+				}
+				state = 10;
 				return true;
 
 		}
 		return false;
 	}
-
-	int8_t waitForSync() {
-		static uint8_t state = 0;
-		static uint32_t time = 0;
-
-		switch (state) {
-
-			case 0:
-				time = millis(), state = 1;
-
-			case 1:
-				// first byte should come within 60ms..300ms
-				if (millis() - time > 3000) {
-					Serial.println("FIRST_BYTE_TIMEOUT");
-					Serial.print("available = ");
-					Serial.println(klSerial->available());
-					while (klSerial->available())
-						Serial.println(klSerial->read(), HEX);
-					break;
-				}
-				if (!klSerial->available()) return 0;
-				if (klSerial->peek() != 0x55) {
-					Serial.println("FIRST_BYTE_MISMATCH");
-					Serial.print("got = ");
-					Serial.println(klSerial->read(), HEX);
-					break;
-				} else klSerial->read();
-				time = millis(), state = 2;
-
-			case 2:
-				// second byte should come within 5ms..20ms
-				if (millis() - time > 200) {
-					Serial.println("SECOND_BYTE_TIMEOUT");
-					Serial.print("available = ");
-					Serial.println(klSerial->available());
-					while (klSerial->available())
-						Serial.println(klSerial->read(), HEX);
-					break;
-				}
-				if (!klSerial->available()) return 0;
-				if (klSerial->peek() != 0xEF) {
-					Serial.println("SECOND_BYTE_MISMATCH");
-					Serial.print("got = ");
-					Serial.println(klSerial->read(), HEX);
-					break;
-				} else klSerial->read();
-				time = millis(), state = 3;
-
-			case 3:
-				// third byte should come within 0ms..20ms
-				if (millis() - time > 200) {
-					Serial.println("THIRD_BYTE_TIMEOUT");
-					Serial.print("available = ");
-					Serial.println(klSerial->available());
-					while (klSerial->available())
-						Serial.println(klSerial->read(), HEX);
-					break;
-				}
-				if (!klSerial->available()) return 0;
-				if (klSerial->peek() != 0x85) {
-					Serial.println("THIRD_BYTE_MISMATCH");
-					Serial.print("got = ");
-					Serial.println(klSerial->read(), HEX);
-					break;
-				} else klSerial->read();
-				state = 0;
-				return 1;
-
-		}
-
-		state = 0;
-		return -1;
-	}
-
-
-	int8_t doPIDRequest(uint8_t pid) {
-
-		static uint8_t state = 0;
-		static uint32_t time = 0;
-
-		switch (state) {
-
-			case 0:
-				klSerial->write(pid);
-				time = millis(), state = 1;
-
-			case 1:
-				// wait for the first byte to come ?ms
-				if (millis() - time > 130) {
-					Serial.println("doPIDRequest, first byte timeout");
-					Serial.print("available = ");
-					Serial.println(klSerial->available());
-					while (klSerial->available())
-						Serial.println(klSerial->read(), HEX);
-					state = 0;
-					return -1;
-				}
-				if (!klSerial->available()) return 0;
-				klSerial->read();
-				/*
-				xx
-				if (klSerial->peek() != pid) {
-					Serial.println("doPIDRequest, first byte mismatch");
-					Serial.print("expected = ");
-					Serial.println(pid);
-					Serial.print("got = ");
-					Serial.println(klSerial->read());
-					Serial.println("leftover = ");
-					while (klSerial->available())
-						Serial.println(klSerial->read(), HEX);
-					state = 0;
-					return -1;
-				} else klSerial->read();
-				*/
-				time = millis(), state = 2;
-
-			case 2:
-				// wait for the second byte to come ?ms
-				if (millis() - time > 130) {
-					Serial.println("doPIDRequest, second byte timeout");
-					Serial.print("available = ");
-					Serial.println(klSerial->available());
-					while (klSerial->available())
-						Serial.println(klSerial->read(), HEX);
-					state = 0;
-					return -1;
-				}
-				if (!klSerial->available()) return 0;
-				pidResponse = klSerial->read();
-				time = millis();
-				state = 3;
-				return 1;
-
-			case 3:
-				// interval between PID requests?
-				if (millis() - time >= 60) state = 0;
-				return 0;
-
-		}
-	}
-
-
-
-
-
 
 }
 
@@ -252,79 +185,10 @@ namespace KL {
 
 	void init(uint8_t PIN_RX, uint8_t PIN_TX) {
 		using namespace KL_private;
-		state = KL_STATE_BITBANG;
 		pinMode(KL_private::PIN_RX = PIN_RX, INPUT);
 		pinMode(KL_private::PIN_TX = PIN_TX, OUTPUT);
 		klSerial = new SoftwareSerial(PIN_RX, PIN_TX);
-		digitalWrite(PIN_TX, HIGH);
-	}
-
-	bool update() {
-		using namespace KL_private;
-		switch (state) {
-
-			case KL_STATE_ERROR:
-				klSerial->end();
-				state = KL_STATE_BITBANG;
-
-			case KL_STATE_BITBANG:
-				if (!bitBang(true)) return false;
-				klSerial->begin(KL_SERIAL_SPEED);
-				pidIndex = 0;
-				state = KL_STATE_SYNC;
-
-			case KL_STATE_SYNC:
-				switch (waitForSync()) {
-					case -1: state = KL_STATE_ERROR;
-					case 0: return false;
-				}
-				state = KL_STATE_GETPID;
-
-			case KL_STATE_GETPID:
-
-				switch (doPIDRequest(PIDS[pidIndex])) {
-					case -1: state = KL_STATE_ERROR;
-					case 0: return false;
-				}
-
-				switch (PIDS[pidIndex]) {
-					case KL_PID_SPEED: speed = uint16_t(pidResponse) * 2; break;
-					case KL_PID_VOLTAGE: voltage = uint16_t(pidResponse) * 73 / 100; break;
-					case KL_PID_COOLANT_TEMP: coolantTemp = uint16_t(pidResponse) - 40; break;
-					case KL_PID_THROTTLE: throttlePosition = uint16_t(pidResponse) * 100 / 255; break;
-					case KL_PID_RPM: rpm = pidResponse; rpm = uint16_t(rpm) * 31 + uint16_t(rpm) / 4; break;
-				}
-
-				if (++pidIndex == sizeof(PIDS)) pidIndex = 0;
-				return true;
-
-		}
-	}
-
-
-	uint16_t getRPM() {
-		using namespace KL_private;
-		return rpm;
-	}
-
-	uint16_t getSpeed() {
-		using namespace KL_private;
-		return speed;
-	}
-
-	uint16_t getVoltage() {
-		using namespace KL_private;
-		return voltage;
-	}
-
-	uint16_t getCoolantTemp() {
-		using namespace KL_private;
-		return coolantTemp;
-	}
-
-	uint16_t getThrottlePosition() {
-		using namespace KL_private;
-		return throttlePosition;
+		klSerial->begin(KL_SERIAL_SPEED);
 	}
 
 }

@@ -21,32 +21,20 @@
 
 #define CMD_RESET_SPEED 65
 #define CMD_RESET_CONSUMPTION 66
-#define CMD_KL_CONNECT 67
-
 
 void setup() {
 	wdt_enable(WDT_INTERVAL);
 	Serial.begin(SERIAL_SPEED);
 	KL::init(PIN_KL_RX, PIN_KL_TX);
 	BC::init(PIN_BC_MODE, PIN_BC_RESET, BC_UPDATE_INTERVAL_MS);
+	// otherwise there is a risk to send something several times in millis() - time
+	delay(1);
 }
 
 void serialEvent() {
 	if (RPC::process()) switch (RPC::getCommand()) {
-
-		case CMD_RESET_SPEED:
-			BC::resetSpeed();
-			break;
-
-		case CMD_RESET_CONSUMPTION:
-			BC::resetConsumption();
-			break;
-
-		case CMD_KL_CONNECT:
-			wdt_disable();
-			KL::connect();
-			wdt_enable(WDT_INTERVAL);
-			break;
+		case CMD_RESET_SPEED: BC::resetSpeed(); break;
+		case CMD_RESET_CONSUMPTION: BC::resetConsumption(); break;
 	}
 }
 
@@ -55,7 +43,7 @@ void loop() {
 	wdt_reset();
 
 	bool xUpd = BC::update();
-	bool yUpd = KL::update();
+	bool yUpd = KL_private::mutLoop();
 
 	if (xUpd || yUpd) {
 
@@ -75,33 +63,33 @@ void loop() {
 		Serial.println(BC::getConsumption());
 
 
-		Serial.print("KL_private::state: ");
-		Serial.println(KL_private::state);
-
-		Serial.print("KL_private::connected: ");
-		Serial.println(KL_private::connected);
-
-		Serial.print("KL_private::buffer: ");
-		for (uint8_t c = 0; c < 3; c++) {
-			if (c != 2)
-				Serial.print(KL_private::buffer[c], HEX);
-			else Serial.println(KL_private::buffer[c], HEX);
-		}
 
 		Serial.print("RPM: ");
-		Serial.println(KL::getRPM());
+		Serial.println(KL_private::rpm);
 
 		Serial.print("SPEED: ");
-		Serial.println(KL::getSpeed());
+		Serial.println(KL_private::speed);
 
-		Serial.print("VOLTAGE: ");
-		Serial.println(KL::getVoltage());
+		Serial.print("COOLANT: ");
+		Serial.println(KL_private::coolantTemp);
 
-		Serial.print("COOLANT_TEMP: ");
-		Serial.println(KL::getCoolantTemp());
+		Serial.print("INTAKE_AIR_TEMP: ");
+		Serial.println(KL_private::intakeAirTemp);
+
+		Serial.print("INJ_PULSE_WIDTH: ");
+		Serial.println(KL_private::injPulseWidth);
+
+		Serial.print("BATTERY_VOLTAGE: ");
+		Serial.println(KL_private::batteryVoltage);
 
 		Serial.print("THROTTLE_POSITION: ");
-		Serial.println(KL::getThrottlePosition());
+		Serial.println(KL_private::throttlePosition);
+
+		Serial.print("X_TEMP: ");
+		Serial.println(KL_private::xTemp);
+
+		Serial.print("X_BARO: ");
+		Serial.println(KL_private::xBaro);
 
 	}
 
