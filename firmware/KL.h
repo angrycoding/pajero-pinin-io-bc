@@ -107,27 +107,19 @@ namespace KL_private {
 	uint8_t pidB8 = 0;
 
 
-
-
-	int8_t asyncDelay(uint32_t delay) {
+	bool sendBit(uint32_t duration, int8_t value = -1) {
 		static uint32_t time = 0;
 		if (time == 0) {
+			if (value != -1)
+				digitalWrite(PIN_TX, value);
 			time = millis();
-			return -1;
-		} else if (millis() - time >= delay) {
+		} else if (millis() - time >= duration) {
 			time = 0;
-			return 1;
+			return false;
 		}
-		return 0;
+		return true;
 	}
 
-	bool sendBit(bool value, uint32_t duration = KL_INTERBIT_DELAY) {
-		switch (asyncDelay(duration)) {
-			case -1: digitalWrite(PIN_TX, value);
-			case 0: return true;
-			case 1: return false;
-		}
-	}
 
 	int8_t waitForBytes(uint8_t count) {
 		static uint32_t time = 0;
@@ -171,17 +163,17 @@ namespace KL_private {
 
 			// delay for reconnection after error
 			case -3:
-				if (asyncDelay(KL_RECONNECT_DELAY) < 1) return false;
+				if (sendBit(KL_RECONNECT_DELAY)) return false;
 				state++;
 
 			// before the initialization, the line K shall be logic "1" for the time period W0 (2ms..INF)
 			case -2:
-				if (sendBit(HIGH, KL_INIT_DELAY)) return false;
+				if (sendBit(KL_INIT_DELAY, HIGH)) return false;
 				state++;
 
 			// send startbit
 			case -1:
-				if (sendBit(LOW)) return false;
+				if (sendBit(KL_INTERBIT_DELAY, LOW)) return false;
 				state++;
 
 			// send ECU address
@@ -193,11 +185,11 @@ namespace KL_private {
 			case 5:
 			case 6:
 			case 7:
-				if (sendBit(KL_ECU_ADDRESS & 1 << state) || ++state != 8) return false;
+				if (sendBit(KL_INTERBIT_DELAY, KL_ECU_ADDRESS & 1 << state) || ++state != 8) return false;
 
 			// send stopbit
 			case 8:
-				if (sendBit(HIGH)) return false;
+				if (sendBit(KL_INTERBIT_DELAY, HIGH)) return false;
 				while (klSerial->available()) klSerial->read();
 				state++;
 
