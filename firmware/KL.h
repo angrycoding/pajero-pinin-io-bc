@@ -179,7 +179,7 @@ namespace KL_private {
 				va_list list;
 				va_start(list, readBytes);
 				while (readBytes--) {
-					if (klSerial->read() != va_arg(list, uint8_t)) {
+					if (klSerial->read() != va_arg(list, int)) {
 						state = KL_STATE_RECONNECT;
 						return true;
 					}
