@@ -142,7 +142,7 @@ namespace KL_private {
 
 		uint8_t available = klSerial->available();
 
-		if (asyncDelay(300) == 1 || available > count) {
+		if (asyncDelay(KL_RESPONSE_TIMEOUT) == 1 || available > count) {
 			asyncDelay();
 			state = KL_STATE_RECONNECT;
 			return true;
