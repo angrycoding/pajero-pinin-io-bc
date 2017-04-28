@@ -162,7 +162,7 @@ namespace KL_private {
 		}
 	}
 
-	bool waitForBytes(uint8_t count) {
+	bool waitForBytes(uint8_t count, uint8_t readBytes = 0, ...) {
 
 		uint8_t available = klSerial->available();
 
@@ -176,6 +176,19 @@ namespace KL_private {
 
 		if (available == count) {
 			asyncDelay();
+
+			if (readBytes > 0 && readBytes <= count) {
+				va_list list;
+				va_start(list, readBytes);
+				while (readBytes--) {
+					if (klSerial->read() != va_arg(list, uint8_t)) {
+						state = KL_STATE_RECONNECT;
+						return true;
+					}
+				}
+				va_end(list);
+			}
+
 			return false;
 		}
 	}
@@ -243,15 +256,7 @@ namespace KL_private {
 				state++;
 
 			case 9:
-				if (waitForBytes(3)) return false;
-				
-				if (klSerial->read() != 0x55 ||
-					klSerial->read() != 0xEF ||
-					klSerial->read() != 0x85) {
-					state = KL_STATE_RECONNECT;
-					return false;
-				}
-
+				if (waitForBytes(3, 3, 0x55, 0xEF, 0x85)) return false;
 				state++;
 				pidIndex = 0;
 
