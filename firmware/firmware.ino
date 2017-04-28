@@ -38,6 +38,13 @@ void serialEvent() {
 	}
 }
 
+void clearAndHome() {
+	Serial.write(27); 
+	Serial.print("[2J"); // clear screen 
+	Serial.write(27); // ESC 
+	Serial.print("[H"); // cursor to home 
+}
+
 void loop() {
 
 	wdt_reset();
@@ -46,6 +53,8 @@ void loop() {
 	bool yUpd = KL_private::mutLoop();
 
 	if (xUpd || yUpd) {
+
+		clearAndHome();
 
 		Serial.print("TEMPERATURE: ");
 		Serial.println(BC::getTemperature());

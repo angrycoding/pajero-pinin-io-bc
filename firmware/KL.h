@@ -40,17 +40,40 @@
 // какая то температура
 #define KL_PID_TEMPERATURE 0x3A
 
-// проверить
+// давление в баке?
 #define KL_PID_39 0x39
+
+// реле кондиционера
 #define KL_PID_49 0x49
+
+// статус вентилятора радиатора
 #define KL_PID_84 0x84
+
+// давление топлива в ТНВД?
+// [value]*0,03216
+// 0..255
 #define KL_PID_87 0x87
+
+// уровень топлива
 #define KL_PID_88 0x88
+
+// муфта компрессора кондиционера
 #define KL_PID_9A 0x9A
+
+// селектор АКПП
 #define KL_PID_A8 0xA8
+
+// тормоз
 #define KL_PID_AA 0xAA
+
+// селектор АКПП
 #define KL_PID_B3 0xB3
+
+// селектор АКПП
 #define KL_PID_B4 0xB4
+
+// гидроусилитель
+// переключатель кондиционера
 #define KL_PID_B8 0xB8
 
 
@@ -109,6 +132,7 @@ namespace KL_private {
 	uint8_t pidB3 = 0;
 	uint8_t pidB4 = 0;
 	uint8_t pidB8 = 0;
+
 
 	int8_t asyncDelay(uint32_t delay = 0) {
 		
