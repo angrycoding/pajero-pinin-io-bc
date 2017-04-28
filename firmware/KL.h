@@ -171,7 +171,7 @@ namespace KL_private {
 
 			// delay for reconnection after error
 			case -3:
-				if (!asyncDelay(KL_RECONNECT_DELAY) < 1) return false;
+				if (asyncDelay(KL_RECONNECT_DELAY) < 1) return false;
 				state++;
 
 			// before the initialization, the line K shall be logic "1" for the time period W0 (2ms..INF)
