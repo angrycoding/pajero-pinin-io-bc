@@ -172,8 +172,6 @@ namespace KL_private {
 			return true;
 		}
 
-		if (available < count) return true;
-
 		if (available == count) {
 			asyncDelay();
 
@@ -191,6 +189,9 @@ namespace KL_private {
 
 			return false;
 		}
+
+		return true;
+
 	}
 
 	void updatePIDValue(uint8_t pid, uint8_t value) {
