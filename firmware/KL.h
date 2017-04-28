@@ -248,9 +248,9 @@ namespace KL_private {
 				if (klSerial->read() != 0x55 ||
 					klSerial->read() != 0xEF ||
 					klSerial->read() != 0x85) {
- 					state = KL_STATE_RECONNECT;
- 					return false;
- 				}
+					state = KL_STATE_RECONNECT;
+					return false;
+				}
 
 				state++;
 				pidIndex = 0;
