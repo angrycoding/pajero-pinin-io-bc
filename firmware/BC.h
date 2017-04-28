@@ -165,8 +165,6 @@ namespace BC_private {
 	// минимальный интервал между обновлениями БК
 	uint32_t UPDATE_INTERVAL;
 
-	// текущее время
-	float time = INFINITY;
 	// внешняя температура
 	float temperature = INFINITY;
 	// запас топлива (км)
@@ -184,7 +182,6 @@ namespace BC_private {
 	bool doResetConsumption = false;
 
 	volatile uint8_t state;
-	volatile uint32_t lcdTime;
 	volatile uint32_t lcdMeterage;
 	volatile uint32_t lcdTemperature;
 	volatile uint8_t lcdMeterageUnit;
@@ -238,14 +235,8 @@ namespace BC_private {
 	// средней скорости и расхода, обновляя стэйт соответствующим образом 
 	bool doUpdate() {
 		bool updated = false;
-		float newTime = LCD_getValue(lcdTime);
 		float newMeterage = LCD_getValue(lcdMeterage);
 		float newTemperature = LCD_getValue(lcdTemperature);
-
-		if (time != newTime) {
-			time = newTime;
-			updated = true;
-		}
 
 		if (temperature != newTemperature) {
 			temperature = newTemperature;
@@ -331,12 +322,6 @@ namespace BC_private {
 			case 28: lcdMeterage |= LCD_DOT(value, 7); break;
 			case 32: if (value >> 6 != LC75874_3_END) state = BC_STATE_START; break;
 			case 33: if (value != LC75874_X_START) state = BC_STATE_START; break;
-			case 36: lcdTime = LCD_1000(value, 1) | LCD_100B(value, 2) | LCD_100BL(value, 3) | LCD_100C(value, 6) | LCD_100TL(value, 7); break;
-			case 37: lcdTime |= LCD_100BR(value, 2) | LCD_100TR(value, 3) | LCD_100T(value, 7); break;
-			case 38: lcdTime |= LCD_10B(value, 2) | LCD_10BL(value, 3) | LCD_10C(value, 6) | LCD_10TL(value, 7); break;
-			case 39: lcdTime |= LCD_10BR(value, 2) | LCD_10TR(value, 3) | LCD_10T(value, 7); break;
-			case 40: lcdTime |= LCD_1B(value, 2) | LCD_1BL(value, 3) | LCD_1C(value, 6) | LCD_1TL(value, 7); break;
-			case 41: lcdTime |= LCD_1BR(value, 2) | LCD_1TR(value, 3) | LCD_1T(value, 7); break;
 			case 43: if (value >> 6 == LC75874_4_END) SPI.detachInterrupt(); else state = BC_STATE_START; break;
 		}
 	}
@@ -373,7 +358,6 @@ namespace BC {
 		switch (state) {
 
 			case BC_STATE_IDLE:
-				lcdTime = 0;
 				lcdMeterage = 0;
 				lcdTemperature = 0;
 				lcdMeterageUnit = 0;
@@ -433,12 +417,6 @@ namespace BC {
 	void resetConsumption() {
 		using namespace BC_private;
 		doResetConsumption = true;
-	}
-
-	// возвращает время (1200.0 = 12:00, 830.0 = 08:30 и т. д.)
-	float getTime() {
-		using namespace BC_private;
-		return time;
 	}
 
 	// возвращает внешнюю температуру

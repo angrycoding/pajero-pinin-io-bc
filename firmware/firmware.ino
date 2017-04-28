@@ -47,9 +47,6 @@ void loop() {
 
 	if (xUpd || yUpd) {
 
-		Serial.print("$TIME: ");
-		Serial.println(BC::getTime());
-
 		Serial.print("TEMPERATURE: ");
 		Serial.println(BC::getTemperature());
 
