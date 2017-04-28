@@ -18,6 +18,9 @@
 #define KL_RESPONSE_TIMEOUT 300
 
 
+#define KL_STATE_RECONNECT -3
+
+
 // температура охлаждающей жидкости
 #define KL_PID_COOLANT_TEMP 0x10
 // температура воздуха на впуске
@@ -121,14 +124,24 @@ namespace KL_private {
 	}
 
 
-	int8_t waitForBytes(uint8_t count) {
+	bool waitForBytes(uint8_t count) {
+
 		static uint32_t time = 0;
 		if (time == 0) time = millis();
-		if (millis() - time > KL_RESPONSE_TIMEOUT) { time = 0; return -1; }
+
 		uint8_t available = klSerial->available();
-		if (available < count) return 0;
+		
+		if (millis() - time > KL_RESPONSE_TIMEOUT || available > count) {
+			time = 0;
+			state = KL_STATE_RECONNECT;
+			return true;
+		}
+
+		if (available < count) return true;
+
+
 		time = 0;
-		return (available == count ? 1 : -1);
+		return false;
 	}
 
 	void updatePIDValue(uint8_t pid, uint8_t value) {
@@ -162,7 +175,7 @@ namespace KL_private {
 		switch (state) {
 
 			// delay for reconnection after error
-			case -3:
+			case KL_STATE_RECONNECT:
 				if (sendBit(KL_RECONNECT_DELAY)) return false;
 				state++;
 
@@ -193,36 +206,34 @@ namespace KL_private {
 				while (klSerial->available()) klSerial->read();
 				state++;
 
-			case 9: switch (waitForBytes(3)) {
-				case 1:
-					if (klSerial->read() == 0x55 &&
-						klSerial->read() == 0xEF &&
-						klSerial->read() == 0x85) {
-						state++;
-						pidIndex = 0;
-						break;
-					}
-				case -1: state = -3;
-				case 0: return false;
-			}
+			case 9:
+				if (waitForBytes(3)) return false;
+				
+				if (klSerial->read() != 0x55 ||
+					klSerial->read() != 0xEF ||
+					klSerial->read() != 0x85) {
+ 					state = KL_STATE_RECONNECT;
+ 					return false;
+ 				}
 
+				state++;
+				pidIndex = 0;
+
+
+			
 			case 10:
 				if (pidIndex == sizeof(PIDS))
 					pidIndex = 0;
 				klSerial->write(PIDS[pidIndex]);
 				state++;
 
-			case 11: switch (waitForBytes(2)) {
-				case 1: state++; break;
-				case -1: state = -3;
-				case 0: return false;
-			}
-
-			case 12:
+			case 11:
+				if (waitForBytes(2)) return false;
 				klSerial->read();
 				updatePIDValue(PIDS[pidIndex++], klSerial->read());
 				state = 10;
 				return true;
+
 
 		}
 		return false;
