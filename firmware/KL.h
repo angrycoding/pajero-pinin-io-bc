@@ -121,11 +121,11 @@ namespace KL_private {
 		return 0;
 	}
 
-	bool sendBit(bool value, uint32_t duration) {
+	bool sendBit(bool value, uint32_t duration = KL_INTERBIT_DELAY) {
 		switch (asyncDelay(duration)) {
 			case -1: digitalWrite(PIN_TX, value);
-			case 0: return false;
-			case 1: return true;
+			case 0: return true;
+			case 1: return false;
 		}
 	}
 
@@ -176,12 +176,12 @@ namespace KL_private {
 
 			// before the initialization, the line K shall be logic "1" for the time period W0 (2ms..INF)
 			case -2:
-				if (!sendBit(HIGH, KL_INIT_DELAY)) return false;
+				if (sendBit(HIGH, KL_INIT_DELAY)) return false;
 				state++;
 
 			// send startbit
 			case -1:
-				if (!sendBit(LOW, KL_INTERBIT_DELAY)) return false;
+				if (sendBit(LOW)) return false;
 				state++;
 
 			// send ECU address
@@ -193,11 +193,11 @@ namespace KL_private {
 			case 5:
 			case 6:
 			case 7:
-				if (!sendBit(KL_ECU_ADDRESS & 1 << state, KL_INTERBIT_DELAY) || ++state != 8) return false;
+				if (sendBit(KL_ECU_ADDRESS & 1 << state) || ++state != 8) return false;
 
 			// send stopbit
 			case 8:
-				if (!sendBit(HIGH, KL_INTERBIT_DELAY)) return false;
+				if (sendBit(HIGH)) return false;
 				while (klSerial->available()) klSerial->read();
 				state++;
 
