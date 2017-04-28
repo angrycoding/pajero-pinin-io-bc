@@ -232,7 +232,7 @@ namespace BC_private {
 	// измерения, при необходимости), сравнивает с предыдущими и в случае если
 	// новое значение не соответствует тому, что было принято в прошлый раз, выдает true
 	// кроме того, контроллирует флаги принудительного сброса показаний
-	// средней скорости и расхода, обновляя стэйт соответствующим образом 
+	// средней скорости и расхода, обновляя стэйт соответствующим образом
 	bool doUpdate() {
 		bool updated = false;
 		float newMeterage = LCD_getValue(lcdMeterage);
@@ -366,8 +366,8 @@ namespace BC {
 				break;
 
 			case BC_STATE_RESET_PRESS:
-				actionTime = millis();
 				digitalWrite(PIN_RESET, HIGH);
+				actionTime = millis();
 				state = BC_STATE_RESET_RELEASE;
 				break;
 
@@ -379,8 +379,8 @@ namespace BC {
 				break;
 
 			case BC_STATE_MODE_PRESS:
-				actionTime = millis();
 				digitalWrite(PIN_MODE, HIGH);
+				actionTime = millis();
 				state = BC_STATE_MODE_RELEASE;
 				break;
 
