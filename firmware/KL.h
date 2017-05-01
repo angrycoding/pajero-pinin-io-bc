@@ -1,7 +1,6 @@
 #ifndef KL_h
 #define KL_h
 
-#include <Arduino.h>
 #include <SoftwareSerial.h>
 
 // адрес ECU
@@ -13,68 +12,27 @@
 // время удержания "1" перед посылкой адреса
 #define KL_INIT_DELAY 2
 // задержка между посылками отдельных битов на скорости 5 бит/с
-#define KL_INTERBIT_DELAY 200
+#define KL_INTERBIT_DELAY 205
 // таймаут ожидания ответа от ЭБУ
-#define KL_RESPONSE_TIMEOUT 300
+#define KL_RESPONSE_TIMEOUT 400
 
 
-#define KL_STATE_RECONNECT -3
-
-
-// температура охлаждающей жидкости
-#define KL_PID_COOLANT_TEMP 0x10
-// температура воздуха на впуске
-#define KL_PID_INTAKE_AIR 0x11
-// напряжение аккумулятора
-#define KL_PID_VOLTAGE 0x14
-// положение дроссельной заслонки
-#define KL_PID_THROTTLE 0x17
-// обороты двигателя
-#define KL_PID_RPM 0x21
-// длительность впрыска
-#define KL_PID_IPW 0x29
-// текущая скорость
-#define KL_PID_SPEED 0x2F
-// какой то барометр
-#define KL_PID_BAROMETER 0x15
-// какая то температура
-#define KL_PID_TEMPERATURE 0x3A
-
-// давление в баке?
-#define KL_PID_39 0x39
-
-// реле кондиционера
-#define KL_PID_49 0x49
-
-// статус вентилятора радиатора
-#define KL_PID_84 0x84
-
-// давление топлива в ТНВД?
-// [value]*0,03216
-// 0..255
-#define KL_PID_87 0x87
-
-// уровень топлива
-#define KL_PID_88 0x88
-
-// муфта компрессора кондиционера
-#define KL_PID_9A 0x9A
-
-// селектор АКПП
-#define KL_PID_A8 0xA8
-
-// тормоз
-#define KL_PID_AA 0xAA
-
-// селектор АКПП
-#define KL_PID_B3 0xB3
-
-// селектор АКПП
-#define KL_PID_B4 0xB4
-
-// гидроусилитель
-// переключатель кондиционера
-#define KL_PID_B8 0xB8
+#define KL_STATE_DISCONNECT -3
+#define KL_STATE_WAKEUP -2
+#define KL_STATE_STARTBIT -1
+#define KL_STATE_A0BIT 0
+#define KL_STATE_A1BIT 1
+#define KL_STATE_A2BIT 2
+#define KL_STATE_A3BIT 3
+#define KL_STATE_A4BIT 4
+#define KL_STATE_A5BIT 5
+#define KL_STATE_A6BIT 6
+#define KL_STATE_A7BIT 7
+#define KL_STATE_STOPBIT 8
+#define KL_STATE_SYNC 9
+#define KL_STATE_REQUEST 10
+#define KL_STATE_RESPONSE 11
+#define KL_STATE_NEXT_REQUEST 12
 
 
 
@@ -83,63 +41,15 @@ namespace KL_private {
 	uint8_t PIN_RX;
 	uint8_t PIN_TX;
 	int8_t state = -2;
-	uint8_t pidIndex = 0;
+	uint8_t pidResponse;
 	SoftwareSerial *klSerial;
 	uint32_t asyncDelayTime = 0;
-
-	uint8_t PIDS[] = {
-		KL_PID_COOLANT_TEMP,
-		KL_PID_VOLTAGE,
-		KL_PID_RPM,
-		KL_PID_SPEED,
-		KL_PID_INTAKE_AIR,
-		KL_PID_THROTTLE,
-		KL_PID_IPW,
-		KL_PID_BAROMETER,
-		KL_PID_TEMPERATURE,
-
-		KL_PID_39,
-		KL_PID_49,
-		KL_PID_84,
-		KL_PID_87,
-		KL_PID_88,
-		KL_PID_9A,
-		KL_PID_A8,
-		KL_PID_AA,
-		KL_PID_B3,
-		KL_PID_B4,
-		KL_PID_B8
-	};
-
-	uint16_t rpm = 0;
-	uint16_t speed = 0;
-	float barometer = 0;
-	int16_t coolantTemp = 0;
-	int8_t ambientTemp = 0;
-	float batteryVoltage = 0;
-	float injPulseWidth = 0;
-	int16_t intakeAirTemp = 0;
-	uint8_t throttlePosition = 0;
-
-	uint8_t pid39 = 0;
-	uint8_t pid49 = 0;
-	uint8_t pid84 = 0;
-	uint8_t pid87 = 0;
-	uint8_t pid88 = 0;
-	uint8_t pid9A = 0;
-	uint8_t pidA8 = 0;
-	uint8_t pidAA = 0;
-	uint8_t pidB3 = 0;
-	uint8_t pidB4 = 0;
-	uint8_t pidB8 = 0;
+	uint32_t lastRequestTime = 0;
+	uint32_t disconnectCount = 0;
 
 
-	int8_t asyncDelay(uint32_t delay = 0) {
-		
-		if (delay == 0) {
-			asyncDelayTime = 0;
-			return 1;
-		}
+
+	int8_t asyncDelay(uint32_t delay) {
 
 		if (asyncDelayTime == 0) {
 			asyncDelayTime = millis();
@@ -155,130 +65,24 @@ namespace KL_private {
 	}
 
 	bool sendBit(bool value, uint32_t duration) {
-		switch (asyncDelay(duration)) {
-			case -1: digitalWrite(PIN_TX, value);
-			case 0: return true;
-			case 1: return false;
-		}
-	}
-
-	bool waitForBytes(uint8_t count, uint8_t readBytes = 0, ...) {
-
-		uint8_t available = klSerial->available();
-
-		if (asyncDelay(KL_RESPONSE_TIMEOUT) == 1 || available > count) {
-			asyncDelay();
-			state = KL_STATE_RECONNECT;
-			return true;
-		}
-
-		if (available == count) {
-			asyncDelay();
-
-			if (readBytes > 0 && readBytes <= count) {
-				va_list list;
-				va_start(list, readBytes);
-				while (readBytes--) {
-					if (klSerial->read() != va_arg(list, int)) {
-						state = KL_STATE_RECONNECT;
-						return true;
-					}
-				}
-				va_end(list);
-			}
-
+		if (asyncDelayTime == 0) {
+			digitalWrite(PIN_TX, value);
+			asyncDelayTime = millis();
+		} else if (millis() - asyncDelayTime >= duration) {
+			asyncDelayTime = 0;
 			return false;
 		}
-
 		return true;
-
 	}
 
-	void updatePIDValue(uint8_t pid, uint8_t value) {
-		switch (pid) {
-			case KL_PID_RPM: rpm = round(31.25 * value); break;
-			case KL_PID_SPEED: speed = (value * 2); break;
-			case KL_PID_COOLANT_TEMP: coolantTemp = (value - 40); break;
-			case KL_PID_VOLTAGE: batteryVoltage = round(value * 10) / 10; break;
-			case KL_PID_IPW: injPulseWidth = (value / 1000); break;
-			case KL_PID_INTAKE_AIR: intakeAirTemp = (value - 40); break;
-			case KL_PID_THROTTLE: throttlePosition = round(value * 100 / 255); break;
-			case KL_PID_BAROMETER: barometer = round(0.49 * value * 100) / 100; break;
-			case KL_PID_TEMPERATURE: ambientTemp = (value - 40); break;
-
-			case KL_PID_39: pid39 = value; break;
-			case KL_PID_49: pid49 = value; break;
-			case KL_PID_84: pid84 = value; break;
-			case KL_PID_87: pid87 = value; break;
-			case KL_PID_88: pid88 = value; break;
-			case KL_PID_9A: pid9A = value; break;
-			case KL_PID_A8: pidA8 = value; break;
-			case KL_PID_AA: pidAA = value; break;
-			case KL_PID_B3: pidB3 = value; break;
-			case KL_PID_B4: pidB4 = value; break;
-			case KL_PID_B8: pidB8 = value; break;
-		}
-	}
-
-	bool mutLoop() {
-
-		switch (state) {
-
-			// delay for reconnection after error
-			case KL_STATE_RECONNECT:
-				if (asyncDelay(KL_RECONNECT_DELAY) != 1) return false;
-				state++;
-
-			// before the initialization, the line K shall be logic "1" for the time period W0 (2ms..INF)
-			case -2:
-				if (sendBit(HIGH, KL_INIT_DELAY)) return false;
-				state++;
-
-			// send startbit
-			case -1:
-				if (sendBit(LOW, KL_INTERBIT_DELAY)) return false;
-				state++;
-
-			// send ECU address
-			case 0:
-			case 1:
-			case 2:
-			case 3:
-			case 4:
-			case 5:
-			case 6:
-			case 7:
-				if (sendBit(KL_ECU_ADDRESS & 1 << state, KL_INTERBIT_DELAY) || ++state != 8) return false;
-
-			// send stopbit
-			case 8:
-				if (sendBit(HIGH, KL_INTERBIT_DELAY)) return false;
-				while (klSerial->available()) klSerial->read();
-				state++;
-
-			case 9:
-				if (waitForBytes(3, 3, 0x55, 0xEF, 0x85)) return false;
-				state++;
-				pidIndex = 0;
-
-
-			
-			case 10:
-				if (pidIndex == sizeof(PIDS))
-					pidIndex = 0;
-				klSerial->write(PIDS[pidIndex]);
-				state++;
-
-			case 11:
-				if (waitForBytes(2)) return false;
-				klSerial->read();
-				updatePIDValue(PIDS[pidIndex++], klSerial->read());
-				state = 10;
-				return true;
-
-
-		}
-		return false;
+	int8_t waitForBytes(uint8_t count) {
+		static uint32_t time = 0;
+		if (time == 0) time = millis();
+		if (millis() - time > KL_RESPONSE_TIMEOUT) { time = 0; return -1; }
+		uint8_t available = klSerial->available();
+		if (available < count) return 0;
+		time = 0;
+		return (available == count ? 1 : -1);
 	}
 
 }
@@ -291,6 +95,93 @@ namespace KL {
 		pinMode(KL_private::PIN_TX = PIN_TX, OUTPUT);
 		klSerial = new SoftwareSerial(PIN_RX, PIN_TX);
 		klSerial->begin(KL_SERIAL_SPEED);
+	}
+
+	bool request(uint8_t pid) {
+
+		using namespace KL_private;
+
+		switch (state) {
+
+			// delay for reconnection after error
+			case KL_STATE_DISCONNECT:
+				switch (asyncDelay(KL_RECONNECT_DELAY)) {
+					case -1: disconnectCount++;
+					case 0: return false;
+					case 1: state = KL_STATE_WAKEUP;
+				}
+
+			// before the initialization, the line K shall be logic "1" for the time period W0 (2ms..INF)
+			case KL_STATE_WAKEUP:
+				if (sendBit(HIGH, KL_INIT_DELAY)) return false;
+				state = KL_STATE_STARTBIT;
+
+			// send startbit
+			case KL_STATE_STARTBIT:
+				if (sendBit(LOW, KL_INTERBIT_DELAY)) return false;
+				state = KL_STATE_A0BIT;
+
+			// send ECU address
+			case KL_STATE_A0BIT:
+			case KL_STATE_A1BIT:
+			case KL_STATE_A2BIT:
+			case KL_STATE_A3BIT:
+			case KL_STATE_A4BIT:
+			case KL_STATE_A5BIT:
+			case KL_STATE_A6BIT:
+			case KL_STATE_A7BIT:
+				if (sendBit(KL_ECU_ADDRESS & 1 << state, KL_INTERBIT_DELAY) || ++state != KL_STATE_STOPBIT) {
+					return false;
+				}
+
+			// send stopbit
+			case KL_STATE_STOPBIT:
+				if (sendBit(HIGH, KL_INTERBIT_DELAY)) return false;
+				while (klSerial->available()) klSerial->read();
+				state = KL_STATE_SYNC;
+
+			// wait for synchronization pattern
+			case KL_STATE_SYNC:
+				switch (waitForBytes(3)) {
+					case 1: if (klSerial->read() == 0x55 &&
+						klSerial->read() == 0xEF &&
+						klSerial->read() == 0x85) {
+						state = KL_STATE_REQUEST;
+						break;
+					}
+					case -1: state = KL_STATE_DISCONNECT;
+					case 0: return false;
+				}
+
+			// request given PID
+			case KL_STATE_REQUEST:
+				klSerial->write(pid);
+				state = KL_STATE_RESPONSE;
+
+			// wait for response and process it
+			case KL_STATE_RESPONSE:
+				switch (waitForBytes(2)) {
+					case -1: state = KL_STATE_DISCONNECT;
+					case 0: return false;
+					case 1:
+						klSerial->read();
+						pidResponse = klSerial->read();
+						asyncDelay(60);
+						state = KL_STATE_NEXT_REQUEST;
+						return true;
+				}
+
+			case KL_STATE_NEXT_REQUEST:
+				if (asyncDelay(60) == 1)
+					state = KL_STATE_REQUEST;
+				return false;
+
+		}
+	}
+
+	uint8_t response() {
+		using namespace KL_private;
+		return pidResponse;
 	}
 
 }

@@ -366,30 +366,38 @@ namespace BC {
 				break;
 
 			case BC_STATE_RESET_PRESS:
-				digitalWrite(PIN_RESET, HIGH);
+				noInterrupts();
+				PORTD |= (1 << PIN_RESET);
 				actionTime = millis();
+				interrupts();
 				state = BC_STATE_RESET_RELEASE;
 				break;
 
 			case BC_STATE_RESET_RELEASE:
+				noInterrupts();
 				if (millis() - actionTime >= RESET_ACTION_DELAY_MS) {
-					digitalWrite(PIN_RESET, LOW);
+					PORTD &= ~(1 << PIN_RESET);
 					state = BC_STATE_MODE_PRESS;
 				}
+				interrupts();
 				break;
 
 			case BC_STATE_MODE_PRESS:
-				digitalWrite(PIN_MODE, HIGH);
+				noInterrupts();
+				PORTD |= (1 << PIN_MODE);
 				actionTime = millis();
+				interrupts();
 				state = BC_STATE_MODE_RELEASE;
 				break;
 
 			case BC_STATE_MODE_RELEASE:
+				noInterrupts();
 				if (millis() - actionTime >= MODE_ACTION_DELAY_MS) {
-					digitalWrite(PIN_MODE, LOW);
+					PORTD &= ~(1 << PIN_MODE);
 					actionTime = millis();
 					state = BC_STATE_UPDATE_DELAY;
 				}
+				interrupts();
 				break;
 
 			case BC_STATE_UPDATE_DELAY:
