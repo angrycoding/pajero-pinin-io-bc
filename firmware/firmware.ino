@@ -3,29 +3,6 @@
 #include "RPC.h"
 #include <avr/wdt.h>
 
-
-
-// температура охлаждающей жидкости
-#define KL_PID_COOLANT_TEMP 0x10
-// температура воздуха на впуске
-#define KL_PID_INTAKE_AIR 0x11
-
-// напряжение аккумулятора
-#define KL_PID_VOLTAGE 0x14
-
-// датчик барометрического давления (0.49 * x = КПА)
-#define KL_PID_BAROMETER 0x15
-
-// положение дроссельной заслонки
-#define KL_PID_THROTTLE 0x17
-// обороты двигателя
-#define KL_PID_RPM 0x21
-// длительность впрыска (в микросекундах)
-#define KL_PID_IPW 0x29
-// текущая скорость
-#define KL_PID_SPEED 0x2F
-
-
 // пин контроллирующий кнопку режима
 #define PIN_BC_MODE 2
 // пин контроллирующий кнопку сброса
@@ -50,15 +27,17 @@
 
 
 uint8_t pidIndex = 0;
+
 uint8_t PIDS[] = {
-	KL_PID_COOLANT_TEMP,
-	KL_PID_VOLTAGE,
-	KL_PID_RPM,
-	KL_PID_SPEED,
-	KL_PID_INTAKE_AIR,
-	KL_PID_THROTTLE,
-	KL_PID_IPW,
-	KL_PID_BAROMETER,
+
+	0x10, // температура охлаждающей жидкости
+	0x11, // напряжение аккумулятора
+	0x14, // положение дроссельной заслонки
+	0x15, // датчик барометрического давления (0.49 * x = КПА)
+	0x17, // температура воздуха на впуске
+	0x21, // обороты двигателя
+	0x29, // длительность впрыска (в микросекундах)
+	0x2F, // текущая скорость
 
 	0x40,
 	0x41,
@@ -92,69 +71,9 @@ uint8_t PIDS[] = {
 	0x5D,
 	0x5E,
 	0x5F
+	
 };
 
-uint16_t rpm = 0;
-uint16_t speed = 0;
-float barometer = 0;
-int16_t coolantTemp = 0;
-float batteryVoltage = 0;
-float injPulseWidth = 0;
-int16_t intakeAirTemp = 0;
-uint8_t throttlePosition = 0;
-
-void sendPID(uint8_t pidIndex, uint8_t value) {
-	setLine(pidIndex + 1);
-	uint8_t pid = PIDS[pidIndex];
-	switch (pid) {
-
-		case KL_PID_RPM:
-			Serial.print("RPM: ");
-			Serial.print(rpm = round(31.25 * value));
-			break;
-
-		case KL_PID_SPEED:
-			Serial.print("SPEED: ");
-			Serial.print(speed = (value * 2));
-			break;
-
-		case KL_PID_COOLANT_TEMP:
-			Serial.print("COOLANT: ");
-			Serial.print(coolantTemp = (value - 40));
-			break;
-
-		case KL_PID_VOLTAGE:
-			Serial.print("BATTERY: ");
-			Serial.print(batteryVoltage = (0.07333 * value));
-			break;
-
-		case KL_PID_BAROMETER:
-			Serial.print("BAROMETER: ");
-			Serial.print(barometer = (0.49 * value));
-			break;
-
-		case KL_PID_IPW:
-			Serial.print("IPW: ");
-			Serial.print(injPulseWidth = value);
-			break;
-
-		case KL_PID_THROTTLE:
-			Serial.print("THROTTLE: ");
-			Serial.print(throttlePosition = round(value * 100 / 255));
-			break;
-
-		case KL_PID_INTAKE_AIR:
-			Serial.print("INTAKE_AIR: ");
-			Serial.print(intakeAirTemp = (value - 40));
-			break;
-
-		default:
-			Serial.print(pid, HEX);
-			Serial.print(": ");
-			Serial.print(value);
-
-	}
-}
 
 void setup() {
 	wdt_enable(WDT_INTERVAL);
@@ -163,60 +82,28 @@ void setup() {
 	BC::init(PIN_BC_MODE, PIN_BC_RESET, BC_UPDATE_INTERVAL_MS);
 	// otherwise there is a risk to send something several times in millis() - time
 	delay(1);
-	clearAndHome();
 }
 
 void serialEvent() {
-	if (RPC::process()) switch (RPC::getCommand()) {
+	if (RPC::process()) switch (RPC::read()) {
 		case CMD_RESET_SPEED: BC::resetSpeed(); break;
 		case CMD_RESET_CONSUMPTION: BC::resetConsumption(); break;
 	}
-}
-
-void clearAndHome() {
-	Serial.write(27);
-	Serial.print("[2J"); // clear screen
-	Serial.write(27); // ESC
-	Serial.print("[H"); // cursor to home
-}
-
-void setLine(uint8_t y) {
-	Serial.write(27);
-	Serial.print("[");
-	Serial.print(y);
-	Serial.print(";0");
-	Serial.print("H");
-	Serial.write(27);
-	Serial.print("[K");
 }
 
 void loop() {
 
 	wdt_reset();
 
+	if (true || BC::update()) {
+		RPC::write(0xF1, BC::getFuel());
+		RPC::write(0xF2, BC::getSpeed());
+		RPC::write(0xF3, BC::getConsumption());
+		RPC::write(0xF4, BC::getTemperature());
+	}
 
-
-	// if (true || BC::update()) {
-
-	// 	setLine(1);
-	// 	Serial.print("getTemperature: ");
-	// 	Serial.print(BC::getTemperature());
-
-	// 	setLine(2);
-	// 	Serial.print("getFuel: ");
-	// 	Serial.print(BC::getFuel());
-
-	// 	setLine(3);
-	// 	Serial.print("getSpeed: ");
-	// 	Serial.print(BC::getSpeed());
-
-	// 	setLine(4);
-	// 	Serial.print("getConsumption: ");
-	// 	Serial.println(BC::getConsumption());
-	// }
-
-	if (true || KL::request(PIDS[pidIndex])) {
-		sendPID(pidIndex++, KL::response());
+	if (true || KL::write(PIDS[pidIndex])) {
+		RPC::write(PIDS[pidIndex++], KL::read());
 		if (pidIndex == sizeof(PIDS)) pidIndex = 0;
 	}
 

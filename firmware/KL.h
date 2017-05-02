@@ -34,20 +34,19 @@
 #define KL_STATE_RESPONSE 11
 #define KL_STATE_NEXT_REQUEST 12
 
+const uint8_t foo = 10;
 
 
 namespace KL_private {
 
 	uint8_t PIN_RX;
 	uint8_t PIN_TX;
-	int8_t state = -2;
 	uint8_t pidResponse;
 	SoftwareSerial *klSerial;
 	uint32_t asyncDelayTime = 0;
 	uint32_t lastRequestTime = 0;
 	uint32_t disconnectCount = 0;
-
-
+	int8_t state = KL_STATE_WAKEUP;
 
 	int8_t asyncDelay(uint32_t delay) {
 
@@ -97,31 +96,34 @@ namespace KL {
 		klSerial->begin(KL_SERIAL_SPEED);
 	}
 
-	bool request(uint8_t pid) {
+	bool write(uint8_t pid) {
 
 		using namespace KL_private;
 
 		switch (state) {
 
-			// delay for reconnection after error
-			case KL_STATE_DISCONNECT:
+			// ожидаем отключения от ЭБУ
+			case KL_STATE_DISCONNECT: {
 				switch (asyncDelay(KL_RECONNECT_DELAY)) {
 					case -1: disconnectCount++;
 					case 0: return false;
 					case 1: state = KL_STATE_WAKEUP;
 				}
+			}
 
-			// before the initialization, the line K shall be logic "1" for the time period W0 (2ms..INF)
-			case KL_STATE_WAKEUP:
+			// до посылки адреса линия должна быть "1" в течении двух миллисекунд
+			case KL_STATE_WAKEUP: {
 				if (sendBit(HIGH, KL_INIT_DELAY)) return false;
 				state = KL_STATE_STARTBIT;
+			}
 
-			// send startbit
-			case KL_STATE_STARTBIT:
+			// посылаем стартовый бит
+			case KL_STATE_STARTBIT: {
 				if (sendBit(LOW, KL_INTERBIT_DELAY)) return false;
 				state = KL_STATE_A0BIT;
+			}
 
-			// send ECU address
+			// посылаем адрес ЭБУ
 			case KL_STATE_A0BIT:
 			case KL_STATE_A1BIT:
 			case KL_STATE_A2BIT:
@@ -129,19 +131,21 @@ namespace KL {
 			case KL_STATE_A4BIT:
 			case KL_STATE_A5BIT:
 			case KL_STATE_A6BIT:
-			case KL_STATE_A7BIT:
+			case KL_STATE_A7BIT: {
 				if (sendBit(KL_ECU_ADDRESS & 1 << state, KL_INTERBIT_DELAY) || ++state != KL_STATE_STOPBIT) {
 					return false;
 				}
+			}
 
-			// send stopbit
-			case KL_STATE_STOPBIT:
+			// посылаем стоповый бит
+			case KL_STATE_STOPBIT: {
 				if (sendBit(HIGH, KL_INTERBIT_DELAY)) return false;
 				while (klSerial->available()) klSerial->read();
 				state = KL_STATE_SYNC;
+			}
 
-			// wait for synchronization pattern
-			case KL_STATE_SYNC:
+			// ожидаем синхронизации
+			case KL_STATE_SYNC: {
 				switch (waitForBytes(3)) {
 					case 1: if (klSerial->read() == 0x55 &&
 						klSerial->read() == 0xEF &&
@@ -152,14 +156,16 @@ namespace KL {
 					case -1: state = KL_STATE_DISCONNECT;
 					case 0: return false;
 				}
+			}
 
-			// request given PID
-			case KL_STATE_REQUEST:
+			// запрашиваем переданный PID
+			case KL_STATE_REQUEST: {
 				klSerial->write(pid);
 				state = KL_STATE_RESPONSE;
+			}
 
-			// wait for response and process it
-			case KL_STATE_RESPONSE:
+			// ожидаем ответа ЭБУ и обрабатываем его
+			case KL_STATE_RESPONSE: {
 				switch (waitForBytes(2)) {
 					case -1: state = KL_STATE_DISCONNECT;
 					case 0: return false;
@@ -170,16 +176,19 @@ namespace KL {
 						state = KL_STATE_NEXT_REQUEST;
 						return true;
 				}
+			}
 
-			case KL_STATE_NEXT_REQUEST:
+			// ожидаем истечения таймаута между запросами
+			case KL_STATE_NEXT_REQUEST: {
 				if (asyncDelay(60) == 1)
 					state = KL_STATE_REQUEST;
 				return false;
+			}
 
 		}
 	}
 
-	uint8_t response() {
+	uint8_t read() {
 		using namespace KL_private;
 		return pidResponse;
 	}
