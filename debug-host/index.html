@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+		<style type="text/css">
+			
+			html, body {
+				position: absolute;
+				left: 2px;
+				right: 2px;
+				bottom: 2px;
+				top: 2px;
+			}
+			
+			body > div {
+				width: 10%;
+				height: 5%;
+				float: left;
+				position: relative;
+			}
+
+			body > div:before {
+				content: attr(data-pid) " ";
+				background-color: red;
+				position: absolute;
+				z-index: 1;
+				border-radius: 4px;
+				padding: 4px;
+				left: 0px;
+				top: 0px;
+				color: white;
+			}
+
+			body > div span {
+				position: absolute;
+				left: 6px;
+				right: 6px;
+				bottom: 6px;
+				top: 6px;
+				display: flex;
+				border-radius: 4px;
+				align-items: center;
+				justify-content: center;
+				border: 1px solid red;
+			}
+
+		</style>
+	</head>
+	<body>
+
+
+
+		<script src="script/socket.js"></script>
+		<script src="script/jquery.js"></script>
+		<script type="text/javascript">
+
+			var socket = io.connect('http://localhost:9999');
+			socket.on('pid', function(key, value) {
+				var pidId = 'pid_' + key;
+				var pidEl = $('#' + pidId);
+				if (!pidEl.length) {
+					pidEl = $('<div><span /></div>').attr('id', pidId);
+					pidEl.attr('data-pid', ('0' + key.toString(16)).slice(-2).toUpperCase());
+					pidEl.appendTo(document.body);
+				}
+				$('span', pidEl).html(value);
+			});
+
+
+		</script>
+	</body>
+</html>
+
+
