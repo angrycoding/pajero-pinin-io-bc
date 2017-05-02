@@ -5,10 +5,10 @@ var EventEmitter = require('events').EventEmitter;
 const WAIT_INTERVAL = 250;
 
 const RPC_START = 0;
-const RPC_KEY = '#'.charCodeAt(0);
-const RPC_VALUE = 1;
+const RPC_KEY = 1;
 
-const RPC_BYTE = 'B'.charCodeAt(0);
+const RPC_UINT8 = 'B'.charCodeAt(0);
+const RPC_UINT32 = 'L'.charCodeAt(0);
 const RPC_FLOAT = 'F'.charCodeAt(0);
 
 function waitConnection(serialPort) {
@@ -33,7 +33,7 @@ function RPC(comName, baudRate) {
 			baudRate: baudRate,
 			autoOpen: false
 		});
-		
+
 		serialPort.on('open', function() {});
 		serialPort.on('data', (data) => this.processIncoming(data));
 		serialPort.on('close', function() {});
@@ -56,36 +56,35 @@ RPC.prototype.processIncoming = function(data) {
 	loop: while (available = buffer.length) switch (this.state) {
 
 		case RPC_START:
-			if (buffer.shift() === RPC_KEY) 
-				this.state = RPC_KEY;
-			break;
-
-		case RPC_KEY:
-			this.responseKey = buffer.shift();
-			this.state = RPC_VALUE;
-			break;
-
-		case RPC_VALUE:
 			switch (buffer.shift()) {
-				case RPC_BYTE: this.state = RPC_BYTE; break;
+				case RPC_UINT8: this.state = RPC_UINT8; break;
+				case RPC_UINT32: this.state = RPC_UINT32; break;
 				case RPC_FLOAT: this.state = RPC_FLOAT; break;
-				default: this.state = RPC_START; break;
 			}
 			break;
 
-		case RPC_BYTE:
+		case RPC_UINT8:
 			this.responseValue = new Buffer(buffer.splice(0, 1)).readUInt8(0);
-			this.state = RPC_START;
-			this.emit('pid', this.responseKey, this.responseValue);
+			this.state = RPC_KEY;
+			break;
+
+		case RPC_UINT32:
+			if (available < 4) break loop;
+			this.responseValue = new Buffer(buffer.splice(0, 4)).readUInt32LE(0);
+			this.state = RPC_KEY;
 			break;
 
 		case RPC_FLOAT: {
 			if (available < 4) break loop;
 			this.responseValue = new Buffer(buffer.splice(0, 4)).readFloatLE(0);
-			this.state = RPC_START;
-			this.emit('pid', this.responseKey, this.responseValue);
+			this.state = RPC_KEY;
 			break;
 		}
+
+		case RPC_KEY:
+			this.emit('pid', buffer.shift(), this.responseValue);
+			this.state = RPC_START;
+			break;
 
 	}
 

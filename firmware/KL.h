@@ -34,9 +34,6 @@
 #define KL_STATE_RESPONSE 11
 #define KL_STATE_NEXT_REQUEST 12
 
-const uint8_t foo = 10;
-
-
 namespace KL_private {
 
 	uint8_t PIN_RX;

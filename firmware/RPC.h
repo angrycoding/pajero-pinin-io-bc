@@ -6,8 +6,8 @@
 #define REQUEST_B3 0x7D
 #define REQUEST_B4 0x29
 
-#define RESPONSE_KEY '#'
-#define RESPONSE_BYTE 'B'
+#define RESPONSE_UINT8 'B'
+#define RESPONSE_UINT32 'L'
 #define RESPONSE_FLOAT 'F'
 
 namespace RPC_private {
@@ -35,14 +35,20 @@ namespace RPC {
 	}
 
 	void write(uint8_t key, uint8_t value) {
-		uint8_t response[4] = {RESPONSE_KEY, key, RESPONSE_BYTE, value};
-		Serial.write(response, 4);
+		uint8_t response[3] = {RESPONSE_UINT8, value, key};
+		Serial.write(response, 3);
+	}
+
+	void write(uint8_t key, uint32_t value) {
+		uint8_t response[6] = {RESPONSE_UINT32, 0, 0, 0, 0, key};
+		*reinterpret_cast<uint32_t*>(&response[1]) = value;
+		Serial.write(response, 6);
 	}
 
 	void write(uint8_t key, float value) {
-		uint8_t response[7] = {RESPONSE_KEY, key, RESPONSE_FLOAT, 0, 0, 0, 0};
-		*reinterpret_cast<float*>(&response[3]) = value;
-		Serial.write(response, 7);
+		uint8_t response[6] = {RESPONSE_FLOAT, 0, 0, 0, 0, key};
+		*reinterpret_cast<float*>(&response[1]) = value;
+		Serial.write(response, 6);
 	}
 
 }

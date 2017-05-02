@@ -16,7 +16,7 @@
 // интервал watch-dog таймера
 #define WDT_INTERVAL WDTO_4S
 // скорость последовательного порта
-#define SERIAL_SPEED 115200
+#define SERIAL_SPEED 500000
 // минимальный интервал между обновлениями БК
 #define BC_UPDATE_INTERVAL_MS 2000
 
@@ -198,14 +198,14 @@ void loop() {
 
 	wdt_reset();
 
-	if (true || BC::update()) {
+	if (BC::update()) {
 		RPC::write(0xF1, BC::getFuel());
 		RPC::write(0xF2, BC::getSpeed());
 		RPC::write(0xF3, BC::getConsumption());
 		RPC::write(0xF4, BC::getTemperature());
 	}
 
-	if (true || KL::write(PIDS[pidIndex])) {
+	if (KL::write(PIDS[pidIndex])) {
 		RPC::write(PIDS[pidIndex++], KL::read());
 		if (pidIndex == sizeof(PIDS)) pidIndex = 0;
 	}
