@@ -29,17 +29,12 @@ namespace RPC {
 		return false;
 	}
 
-	uint8_t iso_checksum(uint8_t *data, uint8_t len)
-{
-  uint8_t i;
-  uint8_t crc;
-
-  crc=0;
-  for(i=0; i<len; i++)
-    crc=crc+data[i];
-
-  return crc;
-}
+	uint8_t iso_checksum(uint8_t *data, uint8_t length) {
+		uint8_t result = 0;
+		for(uint8_t c = 0; c < length; c++)
+			result += data[c];
+		return result;
+	}
 
 	uint8_t read() {
 		using namespace RPC_private;
