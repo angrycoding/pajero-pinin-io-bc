@@ -15,7 +15,7 @@
 // задержка между посылками отдельных битов на скорости 5 бит/с
 #define KL_INTERBIT_DELAY 205
 // задержка между ответом и следующим запросом
-#define KL_REQUEST_INTERVAL 60
+#define KL_REQUEST_INTERVAL 20
 
 
 //
@@ -76,7 +76,7 @@ namespace KL_private {
 			asyncDelayTime = millis();
 			return true;
 		}
-		
+
 		if (millis() - asyncDelayTime >= KL_RECONNECT_DELAY) {
 			asyncDelayTime = 0;
 			state = KL_STATE_WAKEUP;
@@ -86,7 +86,7 @@ namespace KL_private {
 		uint8_t available = klSerial->available();
 
 		if (available < count) return true;
-		
+
 		if (available > count || (
 			count == KL_REQUEST_SYNC &&
 			(klSerial->read() != 0x55 || klSerial->read() != 0xEF || klSerial->read() != 0x85)

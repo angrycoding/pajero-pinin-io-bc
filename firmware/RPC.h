@@ -29,26 +29,41 @@ namespace RPC {
 		return false;
 	}
 
+	uint8_t iso_checksum(uint8_t *data, uint8_t len)
+{
+  uint8_t i;
+  uint8_t crc;
+
+  crc=0;
+  for(i=0; i<len; i++)
+    crc=crc+data[i];
+
+  return crc;
+}
+
 	uint8_t read() {
 		using namespace RPC_private;
 		return command;
 	}
 
 	void write(uint8_t key, uint8_t value) {
-		uint8_t response[3] = {RESPONSE_UINT8, value, key};
-		Serial.write(response, 3);
+		uint8_t response[4] = {RESPONSE_UINT8, value, key, 0};
+		response[3] = iso_checksum(response, 3);
+		Serial.write(response, 4);
 	}
 
 	void write(uint8_t key, uint32_t value) {
-		uint8_t response[6] = {RESPONSE_UINT32, 0, 0, 0, 0, key};
+		uint8_t response[7] = {RESPONSE_UINT32, 0, 0, 0, 0, key, 0};
 		*reinterpret_cast<uint32_t*>(&response[1]) = value;
-		Serial.write(response, 6);
+		response[6] = iso_checksum(response, 6);
+		Serial.write(response, 7);
 	}
 
 	void write(uint8_t key, float value) {
-		uint8_t response[6] = {RESPONSE_FLOAT, 0, 0, 0, 0, key};
+		uint8_t response[7] = {RESPONSE_FLOAT, 0, 0, 0, 0, key, 0};
 		*reinterpret_cast<float*>(&response[1]) = value;
-		Serial.write(response, 6);
+		response[6] = iso_checksum(response, 6);
+		Serial.write(response, 7);
 	}
 
 }
