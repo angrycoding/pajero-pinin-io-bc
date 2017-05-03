@@ -45,19 +45,13 @@ namespace KL_private {
 	uint32_t disconnectCount = 0;
 	int8_t state = KL_STATE_WAKEUP;
 
-	int8_t asyncDelay(uint32_t delay) {
-
-		if (asyncDelayTime == 0) {
-			asyncDelayTime = millis();
-			return -1;
-		}
-
-		if (millis() - asyncDelayTime >= delay) {
+	bool asyncDelay(uint32_t delay) {
+		if (asyncDelayTime == 0) asyncDelayTime = millis();
+		else if (millis() - asyncDelayTime >= delay) {
 			asyncDelayTime = 0;
-			return 1;
+			return false;
 		}
-
-		return 0;
+		return true;
 	}
 
 	bool sendBit(bool value, uint32_t duration) {
@@ -101,11 +95,8 @@ namespace KL {
 
 			// ожидаем отключения от ЭБУ
 			case KL_STATE_DISCONNECT: {
-				switch (asyncDelay(KL_RECONNECT_DELAY)) {
-					case -1: disconnectCount++;
-					case 0: return false;
-					case 1: state = KL_STATE_WAKEUP;
-				}
+				if (asyncDelay(KL_RECONNECT_DELAY)) return false;
+				disconnectCount++, state = KL_STATE_WAKEUP;
 			}
 
 			// до посылки адреса линия должна быть "1" в течении двух миллисекунд
@@ -177,7 +168,7 @@ namespace KL {
 
 			// ожидаем истечения таймаута между запросами
 			case KL_STATE_NEXT_REQUEST: {
-				if (asyncDelay(60) == 1)
+				if (!asyncDelay(60))
 					state = KL_STATE_REQUEST;
 				return false;
 			}
