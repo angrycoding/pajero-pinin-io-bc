@@ -8,13 +8,19 @@
 // скорость обмена
 #define KL_SERIAL_SPEED 15625
 // задержка перед попыткой установки соединения после ошибки
+// используется также в качестве таймаута ожидания ответа от ЭБУ
 #define KL_RECONNECT_DELAY 5000
 // время удержания "1" перед посылкой адреса
 #define KL_INIT_DELAY 2
 // задержка между посылками отдельных битов на скорости 5 бит/с
 #define KL_INTERBIT_DELAY 205
-// таймаут ожидания ответа от ЭБУ
-#define KL_RESPONSE_TIMEOUT 400
+// задержка между ответом и следующим запросом
+#define KL_REQUEST_INTERVAL 60
+
+
+//
+#define KL_REQUEST_SYNC 3
+#define KL_REQUEST_PID 2
 
 
 #define KL_STATE_DISCONNECT -3
@@ -41,7 +47,6 @@ namespace KL_private {
 	uint8_t pidResponse;
 	SoftwareSerial *klSerial;
 	uint32_t asyncDelayTime = 0;
-	uint32_t lastRequestTime = 0;
 	uint32_t disconnectCount = 0;
 	int8_t state = KL_STATE_WAKEUP;
 
@@ -65,14 +70,33 @@ namespace KL_private {
 		return true;
 	}
 
-	int8_t waitForBytes(uint8_t count) {
-		static uint32_t time = 0;
-		if (time == 0) time = millis();
-		if (millis() - time > KL_RESPONSE_TIMEOUT) { time = 0; return -1; }
+	bool request(uint8_t count) {
+
+		if (asyncDelayTime == 0) {
+			asyncDelayTime = millis();
+			return true;
+		}
+		
+		if (millis() - asyncDelayTime >= KL_RECONNECT_DELAY) {
+			asyncDelayTime = 0;
+			state = KL_STATE_WAKEUP;
+			return true;
+		}
+
 		uint8_t available = klSerial->available();
-		if (available < count) return 0;
-		time = 0;
-		return (available == count ? 1 : -1);
+
+		if (available < count) return true;
+		
+		if (available > count || (
+			count == KL_REQUEST_SYNC &&
+			(klSerial->read() != 0x55 || klSerial->read() != 0xEF || klSerial->read() != 0x85)
+		)) {
+			state = KL_STATE_DISCONNECT;
+			return true;
+		}
+
+		asyncDelayTime = 0;
+		return false;
 	}
 
 }
@@ -96,12 +120,13 @@ namespace KL {
 			// ожидаем отключения от ЭБУ
 			case KL_STATE_DISCONNECT: {
 				if (asyncDelay(KL_RECONNECT_DELAY)) return false;
-				disconnectCount++, state = KL_STATE_WAKEUP;
+				state = KL_STATE_WAKEUP;
 			}
 
 			// до посылки адреса линия должна быть "1" в течении двух миллисекунд
 			case KL_STATE_WAKEUP: {
 				if (sendBit(HIGH, KL_INIT_DELAY)) return false;
+				disconnectCount++;
 				state = KL_STATE_STARTBIT;
 			}
 
@@ -134,16 +159,8 @@ namespace KL {
 
 			// ожидаем синхронизации
 			case KL_STATE_SYNC: {
-				switch (waitForBytes(3)) {
-					case 1: if (klSerial->read() == 0x55 &&
-						klSerial->read() == 0xEF &&
-						klSerial->read() == 0x85) {
-						state = KL_STATE_REQUEST;
-						break;
-					}
-					case -1: state = KL_STATE_DISCONNECT;
-					case 0: return false;
-				}
+				if (request(KL_REQUEST_SYNC)) return false;
+				state = KL_STATE_REQUEST;
 			}
 
 			// запрашиваем переданный PID
@@ -154,21 +171,16 @@ namespace KL {
 
 			// ожидаем ответа ЭБУ и обрабатываем его
 			case KL_STATE_RESPONSE: {
-				switch (waitForBytes(2)) {
-					case -1: state = KL_STATE_DISCONNECT;
-					case 0: return false;
-					case 1:
-						klSerial->read();
-						pidResponse = klSerial->read();
-						asyncDelay(60);
-						state = KL_STATE_NEXT_REQUEST;
-						return true;
-				}
+				if (request(KL_REQUEST_PID)) return false;
+				pidResponse = (klSerial->read(), klSerial->read());
+				asyncDelay(KL_REQUEST_INTERVAL);
+				state = KL_STATE_NEXT_REQUEST;
+				return true;
 			}
 
 			// ожидаем истечения таймаута между запросами
 			case KL_STATE_NEXT_REQUEST: {
-				if (!asyncDelay(60))
+				if (!asyncDelay(KL_REQUEST_INTERVAL))
 					state = KL_STATE_REQUEST;
 				return false;
 			}
