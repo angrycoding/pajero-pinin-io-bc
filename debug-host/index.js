@@ -50,10 +50,7 @@ screen.render();
 
 screen.key(['escape', 'q', 'C-c'], function(ch, key) {
 	rpc.exit(function() {
-		// console.info('closed')
-		// setTimeout(function() {
-			process.exit(0);
-		// }, 300)
+		process.exit(0);
 	});
 });
 
@@ -74,26 +71,6 @@ function updatePid(pid, value) {
 	screen.render();
 }
 
-// var pid = 0;
-
-// function getRandomInt(min, max) {
-// 	return Math.floor(Math.random() * (max - min + 1)) + min;
-// }
-
-// setInterval(function() {
-
-// 	updatePid(pid, getRandomInt(0, 3))
-// 	pid++;
-// 	if (pid === 256) {
-// 		pid = 0;
-// 	}
-
-// }, 60);
-
 rpc.on('pid', function(key, value) {
-	// console.info(key, typeof key, value, typeof value)
-	// if (key !== 253) {
-	// 	process.exit(0)
-	// }
 	updatePid(key, value);
 });
