@@ -1,6 +1,6 @@
 {
 	"dependencies": {
 		"serialport": "latest",
-		"socket.io": "latest"
+		"blessed": "latest"
 	}
 }
