@@ -109,23 +109,32 @@ function onMouseMove(event, click) {
 
 		if (click) {
 
-			var pidIndex = POI_DATA_ARR.findIndex(row => row[0] === PID_DATA_ARR[0][0]);
-			if (pidIndex === -1) {
-				POI_DATA_ARR.some(function(row, index) {
-					if (row[0] === '') {
-						POI_DATA_ARR[index][0] = PID_DATA_ARR[0][0];
-						return true;
-					}
-				});
+			if (event.button === 'right') {
+				if (PID_DATA_ARR[y][x] === 'x')
+					PID_DATA_ARR[y][x] = '';
+				else PID_DATA_ARR[y][x] = 'x';
 			}
 
 			else {
-				POI_DATA_ARR.push(POI_DATA_ARR[pidIndex].fill(''));
-				POI_DATA_ARR.splice(pidIndex, 1);
+
+				var pidIndex = POI_DATA_ARR.findIndex(row => row[0] === PID_DATA_ARR[0][0]);
+				if (pidIndex === -1) {
+					POI_DATA_ARR.some(function(row, index) {
+						if (row[0] === '') {
+							POI_DATA_ARR[index][0] = PID_DATA_ARR[0][0];
+							return true;
+						}
+					});
+				}
+
+				else {
+					POI_DATA_ARR.push(POI_DATA_ARR[pidIndex].fill(''));
+					POI_DATA_ARR.splice(pidIndex, 1);
+				}
+
+
+				box2.setData(POI_DATA_ARR);
 			}
-
-
-			box2.setData(POI_DATA_ARR);
 		}
 
 	}
@@ -167,6 +176,8 @@ function updatePid(pid, value) {
 
 	var valueStr = ('  ' + value.toString()).slice(-3);
 	var pidDataV = PID_DATA_ARR[y][x];
+
+	if (pidDataV === 'x') return;
 
 	if (pidDataV && blessed.stripTags(pidDataV) !== valueStr) {
 		valueStr = '{inverse}' + valueStr + '{/inverse}'
