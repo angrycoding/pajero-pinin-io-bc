@@ -211,13 +211,13 @@ function updatePid(pid, value) {
 	screen.render();
 }
 
-var pid = 0;
+// var pid = 0;
 
-setInterval(function() {
-	updatePid(pid, Math.round(Math.random() * 1000));
-	pid++;
-	if (pid === 256) pid = 0;
-}, 0)
+// setInterval(function() {
+// 	updatePid(pid, Math.round(Math.random() * 1000));
+// 	pid++;
+// 	if (pid === 256) pid = 0;
+// }, 0)
 
 rpc.on('pid', function(key, value) {
 	updatePid(key, value);

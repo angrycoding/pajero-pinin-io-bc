@@ -30,6 +30,7 @@ uint8_t pidIndex = 0;
 
 uint8_t PIDS[] = {
 
+	0x00,
 	0x01,
 	0x02,
 	0x03, // тут есть тормоза
