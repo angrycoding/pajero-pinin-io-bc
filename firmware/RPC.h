@@ -6,6 +6,7 @@
 #define REQUEST_B3 0x7D
 #define REQUEST_B4 0x29
 
+#define RESPONSE_NULL 'N'
 #define RESPONSE_UINT8 'B'
 #define RESPONSE_UINT32 'L'
 #define RESPONSE_FLOAT 'F'
@@ -41,6 +42,13 @@ namespace RPC {
 	uint8_t read() {
 		using namespace RPC_private;
 		return command;
+	}
+
+	void write(uint8_t key) {
+		using namespace RPC_private;
+		uint8_t response[3] = {RESPONSE_NULL, key, 0};
+		response[2] = iso_checksum(response, 2);
+		Serial.write(response, 3);
 	}
 
 	void write(uint8_t key, uint8_t value) {

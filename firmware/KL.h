@@ -70,33 +70,33 @@ namespace KL_private {
 		return true;
 	}
 
-	bool request(uint8_t count) {
+	uint8_t request(uint8_t count) {
 
 		if (asyncDelayTime == 0) {
 			asyncDelayTime = millis();
-			return true;
+			return 1;
 		}
 
 		if (millis() - asyncDelayTime >= KL_RECONNECT_DELAY) {
 			asyncDelayTime = 0;
 			state = KL_STATE_WAKEUP;
-			return true;
+			return 2;
 		}
 
 		uint8_t available = klSerial->available();
 
-		if (available < count) return true;
+		if (available < count) return 3;
 
 		if (available > count || (
 			count == KL_REQUEST_SYNC &&
 			(klSerial->read() != 0x55 || klSerial->read() != 0xEF || klSerial->read() != 0x85)
 		)) {
 			state = KL_STATE_DISCONNECT;
-			return true;
+			return 4;
 		}
 
 		asyncDelayTime = 0;
-		return false;
+		return 0;
 	}
 
 }
@@ -111,7 +111,7 @@ namespace KL {
 		klSerial->begin(KL_SERIAL_SPEED);
 	}
 
-	bool write(uint8_t pid) {
+	uint8_t write(uint8_t pid) {
 
 		using namespace KL_private;
 
@@ -119,20 +119,20 @@ namespace KL {
 
 			// ожидаем отключения от ЭБУ
 			case KL_STATE_DISCONNECT: {
-				if (asyncDelay(KL_RECONNECT_DELAY)) return false;
+				if (asyncDelay(KL_RECONNECT_DELAY)) return 0;
 				state = KL_STATE_WAKEUP;
 			}
 
 			// до посылки адреса линия должна быть "1" в течении двух миллисекунд
 			case KL_STATE_WAKEUP: {
-				if (sendBit(HIGH, KL_INIT_DELAY)) return false;
+				if (sendBit(HIGH, KL_INIT_DELAY)) return 0;
 				disconnectCount++;
 				state = KL_STATE_STARTBIT;
 			}
 
 			// посылаем стартовый бит
 			case KL_STATE_STARTBIT: {
-				if (sendBit(LOW, KL_INTERBIT_DELAY)) return false;
+				if (sendBit(LOW, KL_INTERBIT_DELAY)) return 0;
 				state = KL_STATE_A0BIT;
 			}
 
@@ -146,20 +146,20 @@ namespace KL {
 			case KL_STATE_A6BIT:
 			case KL_STATE_A7BIT: {
 				if (sendBit(KL_ECU_ADDRESS & 1 << state, KL_INTERBIT_DELAY) || ++state != KL_STATE_STOPBIT) {
-					return false;
+					return 0;
 				}
 			}
 
 			// посылаем стоповый бит
 			case KL_STATE_STOPBIT: {
-				if (sendBit(HIGH, KL_INTERBIT_DELAY)) return false;
+				if (sendBit(HIGH, KL_INTERBIT_DELAY)) return 0;
 				while (klSerial->available()) klSerial->read();
 				state = KL_STATE_SYNC;
 			}
 
 			// ожидаем синхронизации
 			case KL_STATE_SYNC: {
-				if (request(KL_REQUEST_SYNC)) return false;
+				if (request(KL_REQUEST_SYNC)) return 0;
 				state = KL_STATE_REQUEST;
 			}
 
@@ -171,18 +171,27 @@ namespace KL {
 
 			// ожидаем ответа ЭБУ и обрабатываем его
 			case KL_STATE_RESPONSE: {
-				if (request(KL_REQUEST_PID)) return false;
-				pidResponse = (klSerial->read(), klSerial->read());
-				asyncDelay(KL_REQUEST_INTERVAL);
-				state = KL_STATE_NEXT_REQUEST;
-				return true;
+				switch (request(KL_REQUEST_PID)) {
+
+					case 0:
+						pidResponse = (klSerial->read(), klSerial->read());
+						asyncDelay(KL_REQUEST_INTERVAL);
+						state = KL_STATE_NEXT_REQUEST;
+						return 1;
+					
+					// timeout
+					case 2:
+						return 2;
+
+					default: return 0;
+				}
 			}
 
 			// ожидаем истечения таймаута между запросами
 			case KL_STATE_NEXT_REQUEST: {
 				if (!asyncDelay(KL_REQUEST_INTERVAL))
 					state = KL_STATE_REQUEST;
-				return false;
+				return 0;
 			}
 
 		}

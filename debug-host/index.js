@@ -174,7 +174,8 @@ function updatePid(pid, value) {
 	var x = pid % 16 + 1,
 		y = Math.floor(pid / 16) + 1;
 
-	var valueStr = ('  ' + value.toString()).slice(-3);
+	var valueStr = value === null ? 'N' : ('  ' + value.toString()).slice(-3);
+
 	var pidDataV = PID_DATA_ARR[y][x];
 
 	if (pidDataV === 'x') return;

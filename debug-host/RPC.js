@@ -8,6 +8,7 @@ const RPC_START = 0;
 const RPC_KEY = 1;
 const RPC_CHECK = 2;
 
+const RPC_NULL = 'N'.charCodeAt(0);
 const RPC_UINT8 = 'B'.charCodeAt(0);
 const RPC_UINT32 = 'L'.charCodeAt(0);
 const RPC_FLOAT = 'F'.charCodeAt(0);
@@ -83,11 +84,19 @@ RPC.prototype.processIncoming = function(data) {
 		case RPC_START:
 			this.testBuff = [buffer[0]];
 			switch (buffer.shift()) {
+				
+				case RPC_NULL:
+					this.responseValue = null;
+					this.state = RPC_KEY;
+					break;
+
 				case RPC_UINT8: this.state = RPC_UINT8; break;
 				case RPC_UINT32: this.state = RPC_UINT32; break;
 				case RPC_FLOAT: this.state = RPC_FLOAT; break;
 			}
 			break;
+
+		
 
 		case RPC_UINT8:
 			Array.prototype.push.apply(this.testBuff, buffer.slice(0, 1));

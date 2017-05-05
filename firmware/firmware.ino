@@ -202,9 +202,19 @@ void loop() {
 	if (!asyncDelay(500))
 		RPC::write(0xFF, KL_private::disconnectCount);
 
-	if (KL::write(PIDS[pidIndex])) {
-		RPC::write(PIDS[pidIndex++], KL::read());
-		if (pidIndex == sizeof(PIDS)) pidIndex = 0;
+	switch (KL::write(PIDS[pidIndex])) {
+
+		case 1:
+			RPC::write(PIDS[pidIndex++], KL::read());
+			if (pidIndex == sizeof(PIDS)) pidIndex = 0;
+			break;
+
+		case 2:
+			RPC::write(PIDS[pidIndex++]);
+			if (pidIndex == sizeof(PIDS)) pidIndex = 0;
+			break;
+
+
 	}
 
 
