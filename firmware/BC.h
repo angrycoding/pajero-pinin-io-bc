@@ -236,7 +236,8 @@ namespace BC_private {
 	// вызывается после того как мы приняли последний байт от мастера
 	// конвертирует LCD - значения в float (конвертирует в общепринятые еденицы
 	// измерения, при необходимости), сравнивает с предыдущими и в случае если
-	// новое значение не соответствует тому, что было принято в прошлый раз, выдает true
+	// новое значение не соответствует тому, что было принято в прошлый раз,
+	// выдает статус который указывает на то, что конкретно поменялось с прошлого раза
 	// кроме того, контроллирует флаги принудительного сброса показаний
 	// средней скорости и расхода, обновляя стэйт соответствующим образом
 	uint8_t doUpdate() {
@@ -244,66 +245,88 @@ namespace BC_private {
 		float value;
 		uint8_t result = BC_UPDATE_NOTHING;
 
+		// читаем показатель остатка топлива
 		if (lcdMeterageUnit == METERAGE_FUEL_KM || lcdMeterageUnit == METERAGE_FUEL_MILES) {
-
+			
+			// преобразуем LCD - значение в число
 			value = LCD_getValue(lcdMeterage);
 
+			// конвертируем в км, в случае если установлены мили и мы прочитали что - то осмысленное
 			if (value != INFINITY && value != 0 && lcdMeterageUnit == METERAGE_FUEL_MILES) {
 				value = ceil(value * MILE_TO_KM);
 			}
 
+			// проверяем изменилось - ли значение
 			if (fuel != value) {
 				fuel = value;
 				result = BC_UPDATE_FUEL;
 			}
 		}
 
+		// читаем показатель средней скорости
 		else if (lcdMeterageUnit == METERAGE_SPEED_KMH || lcdMeterageUnit == METERAGE_SPEED_MPH) {
 
+			// проверяем нужно ли сбросить показатель
 			if (doResetSpeed) {
 				doResetSpeed = false;
 				value = INFINITY;
 				state = BC_STATE_RESET_PRESS;
-			} else value = LCD_getValue(lcdMeterage);
+			}
 
+			// в случае, если сбрасывать не нужно, преобразуем LCD - значение в число
+			else value = LCD_getValue(lcdMeterage);
+
+			// конвертируем в км/ч, в случае если установлены мили и мы прочитали что - то осмысленное
 			if (value != INFINITY && value != 0 && lcdMeterageUnit == METERAGE_SPEED_MPH) {
 				value = ceil(value * MILE_TO_KM);
 			}
 
+			// проверяем изменилось - ли значение
 			if (speed != value) {
 				speed = value;
 				result = BC_UPDATE_SPEED;
 			}
 		}
 
+		// читаем показатель расхода
 		else if (lcdMeterageUnit == METERAGE_CONSUMPTION_L100KM || lcdMeterageUnit == METERAGE_CONSUMPTION_KML || lcdMeterageUnit == METERAGE_CONSUMPTION_MPG) {
 
+			// проверяем нужно ли сбросить показатель
 			if (doResetConsumption) {
 				doResetConsumption = false;
 				value = INFINITY;
 				state = BC_STATE_RESET_PRESS;
-			} else value = LCD_getValue(lcdMeterage);
+			}
 
+			// в случае, если сбрасывать не нужно, преобразуем LCD - значение в число
+			else value = LCD_getValue(lcdMeterage);
+
+			// конвертируем в л/100км, в случае если мы прочитали что - то осмысленное и установлены км/л или галлоны 
 			if (value != INFINITY && value != 0) {
 				if (lcdMeterageUnit == METERAGE_CONSUMPTION_MPG) value = round(10 * (MPG_TO_L100KM / value)) / 10;
 				else if (lcdMeterageUnit == METERAGE_CONSUMPTION_KML) value = round(10 * (100 / value)) / 10;
 			}
 
+			// проверяем изменилось - ли значение
 			if (consumption != value) {
 				consumption = value;
 				result = BC_UPDATE_CONSUMPTION;
 			}
 		}
 
+		// если ни один показатель не изменился, то читаем температуру
+		// поскольку она самая низкоприоритетная вещь в данном случае
 		if (result == BC_UPDATE_NOTHING) {
+			// преобразуем LCD - значение в число
 			value = LCD_getValue(lcdTemperature);
+			// проверяем изменилось - ли значение
 			if (temperature != value) {
 				temperature = value;
 				result = BC_UPDATE_TEMPERATURE;
 			}
 		}
 
-
+		// в случае если не нужно сбрасывать показатель, переключаем режим
 		if (state == BC_STATE_DONE) state = BC_STATE_MODE_PRESS;
 
 		return result;
@@ -368,6 +391,7 @@ namespace BC {
 
 		switch (state) {
 
+			// начинаем получать данные от мастера
 			case BC_STATE_IDLE:
 				lcdMeterage = 0;
 				lcdTemperature = 0;
@@ -376,6 +400,11 @@ namespace BC {
 				SPI.attachInterrupt();
 				break;
 
+			// приняли данные от мастера, обновляем показатели
+			case BC_STATE_DONE:
+				return doUpdate();
+
+			// нажимаем кнопку сброса
 			case BC_STATE_RESET_PRESS:
 				noInterrupts();
 				PORTD |= (1 << PIN_RESET);
@@ -384,6 +413,7 @@ namespace BC {
 				state = BC_STATE_RESET_RELEASE;
 				break;
 
+			// отпускаем кнопку сброса
 			case BC_STATE_RESET_RELEASE:
 				noInterrupts();
 				if (millis() - actionTime >= RESET_ACTION_DELAY_MS) {
@@ -393,6 +423,7 @@ namespace BC {
 				interrupts();
 				break;
 
+			// нажимаем кнопку переключения режима
 			case BC_STATE_MODE_PRESS:
 				noInterrupts();
 				PORTD |= (1 << PIN_MODE);
@@ -401,6 +432,7 @@ namespace BC {
 				state = BC_STATE_MODE_RELEASE;
 				break;
 
+			// отпускаем кнопку переключения режима
 			case BC_STATE_MODE_RELEASE:
 				noInterrupts();
 				if (millis() - actionTime >= MODE_ACTION_DELAY_MS) {
@@ -411,13 +443,11 @@ namespace BC {
 				interrupts();
 				break;
 
+			// ждем до следующего цикла обновления
 			case BC_STATE_UPDATE_DELAY:
 				if (millis() - actionTime >= UPDATE_INTERVAL)
 					state = BC_STATE_IDLE;
 				break;
-
-			case BC_STATE_DONE:
-				return doUpdate();
 
 		}
 
