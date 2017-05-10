@@ -17,13 +17,14 @@
 // задержка между ответом и следующим запросом
 #define KL_REQUEST_INTERVAL 20
 
+// константы результата выполнения KL::write
+#define KL_WRITE_FAIL 0
+#define KL_WRITE_SUCCESS 1
+#define KL_WRITE_INTERMEDIATE 2
 
-//
-#define KL_REQUEST_SYNC 3
-#define KL_REQUEST_PID 2
-
-
-#define KL_STATE_DISCONNECT -3
+// стэйты
+#define KL_STATE_DISCONNECT -4
+#define KL_STATE_DISCONNECTED -3
 #define KL_STATE_WAKEUP -2
 #define KL_STATE_STARTBIT -1
 #define KL_STATE_A0BIT 0
@@ -44,64 +45,61 @@ namespace KL_private {
 
 	uint8_t PIN_RX;
 	uint8_t PIN_TX;
-	uint8_t pidResponse;
+	uint8_t pidResponse[3];
 	SoftwareSerial *klSerial;
 	uint32_t asyncDelayTime = 0;
-	uint32_t disconnectCount = 0;
 	int8_t state = KL_STATE_WAKEUP;
 
-	bool asyncDelay(uint32_t delay) {
-		if (asyncDelayTime == 0) asyncDelayTime = millis();
-		else if (millis() - asyncDelayTime >= delay) {
-			asyncDelayTime = 0;
-			return false;
-		}
-		return true;
+	// при первом вызове возвращает 1
+	// при втором и последующем вызовах, в случае если время переданное аргументом
+	// не истекло с момента первого вызова - возвращает 2, в ином случае 0
+	uint8_t asyncDelay(uint32_t delay) {
+		return (
+			(asyncDelayTime == 0) ?
+			(asyncDelayTime = millis(), 1) :
+			(millis() - asyncDelayTime >= delay) ?
+			(asyncDelayTime = 0) : 2
+		);
 	}
 
+	// при первом вызове, устанавливает соотв. значение и возвращает false
+	// при втором и последующем вызовах, в случае если время переаданное аргументом
+	// не истекло с момента первого вызова - возвращает false, в ином случае true
 	bool sendBit(bool value, uint32_t duration) {
-		if (asyncDelayTime == 0) {
-			digitalWrite(PIN_TX, value);
-			asyncDelayTime = millis();
-		} else if (millis() - asyncDelayTime >= duration) {
-			asyncDelayTime = 0;
-			return false;
+		switch (asyncDelay(duration)) {
+			case 1: digitalWrite(PIN_TX, value);
+			case 2: return false;
+			case 0: return true;
 		}
-		return true;
 	}
 
-	uint8_t request(uint8_t count) {
+	// ожидает получения соотв. количества байт, возврващает false в случае,
+	// если указанное кол-во байт было принято в течении временного интервала
+	// между первым вызовом и KL_RECONNECT_DELAY и true в любом другом случае
+	// в случае таймаута, соотв. образом изменяет стэйт
+	bool waitForBytes(uint8_t count) {
 
-		if (asyncDelayTime == 0) {
-			asyncDelayTime = millis();
-			return 1;
+		// таймаут
+		if (!asyncDelay(KL_RECONNECT_DELAY)) {
+			// отправляем на стэйт который вернет признак ошибки
+			state = KL_STATE_DISCONNECTED;
+			return true;
 		}
 
-		if (millis() - asyncDelayTime >= KL_RECONNECT_DELAY) {
-			asyncDelayTime = 0;
-			state = KL_STATE_WAKEUP;
-			return 2;
-		}
+		// количество принятых байт не соответствует тому, что требуется
+		if (klSerial->available() != count) return true;
 
-		uint8_t available = klSerial->available();
-
-		if (available < count) return 3;
-
-		if (available > count || (
-			count == KL_REQUEST_SYNC &&
-			(klSerial->read() != 0x55 || klSerial->read() != 0xEF || klSerial->read() != 0x85)
-		)) {
-			state = KL_STATE_DISCONNECT;
-			return 4;
-		}
-
-		asyncDelayTime = 0;
-		return 0;
+		// считываем принятое в буфер
+		klSerial->readBytes(pidResponse, count);
+		return false;
 	}
 
 }
 
 namespace KL {
+
+	const uint8_t WRITE_FAIL = KL_WRITE_FAIL;
+	const uint8_t WRITE_SUCCESS = KL_WRITE_SUCCESS;
 
 	void init(uint8_t PIN_RX, uint8_t PIN_TX) {
 		using namespace KL_private;
@@ -117,22 +115,30 @@ namespace KL {
 
 		switch (state) {
 
-			// ожидаем отключения от ЭБУ
+			// выжидаем KL_RECONNECT_DELAY и переходим на следующий стэйт
 			case KL_STATE_DISCONNECT: {
-				if (asyncDelay(KL_RECONNECT_DELAY)) return 0;
+				if (asyncDelay(KL_RECONNECT_DELAY))
+					return KL_WRITE_INTERMEDIATE;
+				state = KL_STATE_DISCONNECTED;
+			}
+
+			// нет ответа от ЭБУ
+			case KL_STATE_DISCONNECTED: {
 				state = KL_STATE_WAKEUP;
+				return KL_WRITE_FAIL;
 			}
 
 			// до посылки адреса линия должна быть "1" в течении двух миллисекунд
 			case KL_STATE_WAKEUP: {
-				if (sendBit(HIGH, KL_INIT_DELAY)) return 0;
-				disconnectCount++;
+				if (sendBit(HIGH, KL_INIT_DELAY))
+					return KL_WRITE_INTERMEDIATE;
 				state = KL_STATE_STARTBIT;
 			}
 
 			// посылаем стартовый бит
 			case KL_STATE_STARTBIT: {
-				if (sendBit(LOW, KL_INTERBIT_DELAY)) return 0;
+				if (sendBit(LOW, KL_INTERBIT_DELAY))
+					return KL_WRITE_INTERMEDIATE;
 				state = KL_STATE_A0BIT;
 			}
 
@@ -146,20 +152,25 @@ namespace KL {
 			case KL_STATE_A6BIT:
 			case KL_STATE_A7BIT: {
 				if (sendBit(KL_ECU_ADDRESS & 1 << state, KL_INTERBIT_DELAY) || ++state != KL_STATE_STOPBIT) {
-					return 0;
+					return KL_WRITE_INTERMEDIATE;
 				}
 			}
 
 			// посылаем стоповый бит
 			case KL_STATE_STOPBIT: {
-				if (sendBit(HIGH, KL_INTERBIT_DELAY)) return 0;
+				if (sendBit(HIGH, KL_INTERBIT_DELAY))
+					return KL_WRITE_INTERMEDIATE;
+				// очищаем приемный буфер от мусора
 				while (klSerial->available()) klSerial->read();
 				state = KL_STATE_SYNC;
 			}
 
 			// ожидаем синхронизации
 			case KL_STATE_SYNC: {
-				if (request(KL_REQUEST_SYNC)) return 0;
+				if (waitForBytes(3)) return KL_WRITE_INTERMEDIATE;
+				// сравниваем паттерн синхронизации
+				if (pidResponse[0] != 0x55 || pidResponse[1] != 0xEF || pidResponse[2] != 0x85)
+					return (state = KL_STATE_DISCONNECT, KL_WRITE_INTERMEDIATE);
 				state = KL_STATE_REQUEST;
 			}
 
@@ -171,27 +182,18 @@ namespace KL {
 
 			// ожидаем ответа ЭБУ и обрабатываем его
 			case KL_STATE_RESPONSE: {
-				switch (request(KL_REQUEST_PID)) {
-
-					case 0:
-						pidResponse = (klSerial->read(), klSerial->read());
-						asyncDelay(KL_REQUEST_INTERVAL);
-						state = KL_STATE_NEXT_REQUEST;
-						return 1;
-					
-					// timeout
-					case 2:
-						return 2;
-
-					default: return 0;
-				}
+				if (waitForBytes(2)) return KL_WRITE_INTERMEDIATE;
+				// включаем счетчик ожидания минимального интервала между запросами
+				asyncDelay(KL_REQUEST_INTERVAL);
+				state = KL_STATE_NEXT_REQUEST;
+				return KL_WRITE_SUCCESS;
 			}
 
 			// ожидаем истечения таймаута между запросами
 			case KL_STATE_NEXT_REQUEST: {
 				if (!asyncDelay(KL_REQUEST_INTERVAL))
 					state = KL_STATE_REQUEST;
-				return 0;
+				return KL_WRITE_INTERMEDIATE;
 			}
 
 		}
@@ -199,7 +201,7 @@ namespace KL {
 
 	uint8_t read() {
 		using namespace KL_private;
-		return pidResponse;
+		return pidResponse[1];
 	}
 
 }

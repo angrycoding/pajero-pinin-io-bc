@@ -185,17 +185,8 @@ void serialEvent() {
 	}
 }
 
+uint8_t errorCount = 0;
 
-	uint32_t asyncDelayTime = 0;
-
-	bool asyncDelay(uint32_t delay) {
-		if (asyncDelayTime == 0) asyncDelayTime = millis();
-		else if (millis() - asyncDelayTime >= delay) {
-			asyncDelayTime = 0;
-			return false;
-		}
-		return true;
-	}
 
 void loop() {
 
@@ -208,21 +199,17 @@ void loop() {
 		RPC::write(0xF4, BC::getTemperature());
 	}
 
-	if (!asyncDelay(500))
-		RPC::write(0xFF, KL_private::disconnectCount);
-
 	switch (KL::write(PIDS[pidIndex])) {
 
-		case 1:
+		case KL::WRITE_FAIL:
+			pidIndex = 0;
+			RPC::write(0xFF, ++errorCount);
+			break;
+
+		case KL::WRITE_SUCCESS:
 			RPC::write(PIDS[pidIndex++], KL::read());
 			if (pidIndex == sizeof(PIDS)) pidIndex = 0;
 			break;
-
-		case 2:
-			RPC::write(PIDS[pidIndex++]);
-			if (pidIndex == sizeof(PIDS)) pidIndex = 0;
-			break;
-
 
 	}
 
