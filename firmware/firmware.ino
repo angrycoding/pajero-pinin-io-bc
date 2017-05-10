@@ -24,6 +24,12 @@
 #define CMD_RESET_CONSUMPTION 66
 
 
+#define PID_BC_FUEL 0xF1
+#define PID_BC_SPEED 0xF2
+#define PID_BC_CONSUMPTION 0xF3
+#define PID_BC_TEMPERATURE 0xF4
+#define PID_KL_ERROR_COUNT 0xF5
+
 
 
 uint8_t pidIndex = 0;
@@ -193,17 +199,17 @@ void loop() {
 	wdt_reset();
 
 	if (BC::update()) {
-		RPC::write(0xF1, BC::getFuel());
-		RPC::write(0xF2, BC::getSpeed());
-		RPC::write(0xF3, BC::getConsumption());
-		RPC::write(0xF4, BC::getTemperature());
+		RPC::write(PID_BC_FUEL, BC::getFuel());
+		RPC::write(PID_BC_SPEED, BC::getSpeed());
+		RPC::write(PID_BC_CONSUMPTION, BC::getConsumption());
+		RPC::write(PID_BC_TEMPERATURE, BC::getTemperature());
 	}
 
 	switch (KL::write(PIDS[pidIndex])) {
 
 		case KL::WRITE_FAIL:
 			pidIndex = 0;
-			RPC::write(0xFF, ++errorCount);
+			RPC::write(PID_KL_ERROR_COUNT, ++errorCount);
 			break;
 
 		case KL::WRITE_SUCCESS:
