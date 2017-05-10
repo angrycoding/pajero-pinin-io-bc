@@ -55,21 +55,23 @@ namespace KL_private {
 	// не истекло с момента первого вызова - возвращает 2, в ином случае 0
 	uint8_t asyncDelay(uint32_t delay) {
 		return (
-			(asyncDelayTime == 0) ?
-			(asyncDelayTime = millis(), 1) :
-			(millis() - asyncDelayTime >= delay) ?
-			(asyncDelayTime = 0) : 2
+			// первый раз = 1
+			(asyncDelayTime == 0) ? (asyncDelayTime = millis(), 1) :
+			// время истекло = 0
+			(millis() - asyncDelayTime >= delay) ? (asyncDelayTime = 0) :
+			// время не истекло = 2
+			2
 		);
 	}
 
-	// при первом вызове, устанавливает соотв. значение и возвращает false
+	// при первом вызове, устанавливает соотв. значение и возвращает true
 	// при втором и последующем вызовах, в случае если время переаданное аргументом
-	// не истекло с момента первого вызова - возвращает false, в ином случае true
+	// не истекло с момента первого вызова - возвращает true, в ином случае false
 	bool sendBit(bool value, uint32_t duration) {
 		switch (asyncDelay(duration)) {
 			case 1: digitalWrite(PIN_TX, value);
-			case 2: return false;
-			case 0: return true;
+			case 2: return true;
+			case 0: return false;
 		}
 	}
 
