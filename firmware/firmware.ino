@@ -198,11 +198,24 @@ void loop() {
 
 	wdt_reset();
 
-	if (BC::update()) {
-		RPC::write(PID_BC_FUEL, BC::getFuel());
-		RPC::write(PID_BC_SPEED, BC::getSpeed());
-		RPC::write(PID_BC_CONSUMPTION, BC::getConsumption());
-		RPC::write(PID_BC_TEMPERATURE, BC::getTemperature());
+	switch (BC::update()) {
+
+		case BC::UPDATE_FUEL:
+			RPC::write(PID_BC_FUEL, BC::getFuel());
+			break;
+
+		case BC::UPDATE_SPEED:
+			RPC::write(PID_BC_SPEED, BC::getSpeed());
+			break;
+
+		case BC::UPDATE_CONSUMPTION:
+			RPC::write(PID_BC_CONSUMPTION, BC::getConsumption());
+			break;
+
+		case BC::UPDATE_TEMPERATURE:
+			RPC::write(PID_BC_TEMPERATURE, BC::getTemperature());
+			break;
+
 	}
 
 	switch (KL::write(PIDS[pidIndex])) {

@@ -153,9 +153,15 @@
 // неизвестный символ
 #define LCD_CHAR_UNKNOWN 10001
 
+// константы результата выполнения BC::update
+#define BC_UPDATE_NOTHING 0
+#define BC_UPDATE_FUEL 1
+#define BC_UPDATE_SPEED 2
+#define BC_UPDATE_CONSUMPTION 3
+#define BC_UPDATE_TEMPERATURE 4
+
 // ввиду того, что обработчик прерывания не может иметь доступа к приватным
 // членам класса, это единственная возможность разграничить права доступа
-
 namespace BC_private {
 
 	// пин контроллирующий кнопку режима
@@ -233,27 +239,22 @@ namespace BC_private {
 	// новое значение не соответствует тому, что было принято в прошлый раз, выдает true
 	// кроме того, контроллирует флаги принудительного сброса показаний
 	// средней скорости и расхода, обновляя стэйт соответствующим образом
-	bool doUpdate() {
-		bool updated = false;
-		float newMeterage = LCD_getValue(lcdMeterage);
-		float newTemperature = LCD_getValue(lcdTemperature);
-
-		if (temperature != newTemperature) {
-			temperature = newTemperature;
-			updated = true;
-		}
+	uint8_t doUpdate() {
+		
+		float value;
+		uint8_t result = BC_UPDATE_NOTHING;
 
 		if (lcdMeterageUnit == METERAGE_FUEL_KM || lcdMeterageUnit == METERAGE_FUEL_MILES) {
 
-			if (newMeterage != INFINITY && newMeterage != 0) {
-				if (lcdMeterageUnit == METERAGE_FUEL_MILES) {
-					newMeterage = ceil(newMeterage * MILE_TO_KM);
-				}
+			value = LCD_getValue(lcdMeterage);
+
+			if (value != INFINITY && value != 0 && lcdMeterageUnit == METERAGE_FUEL_MILES) {
+				value = ceil(value * MILE_TO_KM);
 			}
 
-			if (fuel != newMeterage) {
-				fuel = newMeterage;
-				updated = true;
+			if (fuel != value) {
+				fuel = value;
+				result = BC_UPDATE_FUEL;
 			}
 		}
 
@@ -261,19 +262,17 @@ namespace BC_private {
 
 			if (doResetSpeed) {
 				doResetSpeed = false;
-				newMeterage = INFINITY;
+				value = INFINITY;
 				state = BC_STATE_RESET_PRESS;
+			} else value = LCD_getValue(lcdMeterage);
+
+			if (value != INFINITY && value != 0 && lcdMeterageUnit == METERAGE_SPEED_MPH) {
+				value = ceil(value * MILE_TO_KM);
 			}
 
-			if (newMeterage != INFINITY && newMeterage != 0) {
-				if (lcdMeterageUnit == METERAGE_SPEED_MPH) {
-					newMeterage = ceil(newMeterage * MILE_TO_KM);
-				}
-			}
-
-			if (speed != newMeterage) {
-				speed = newMeterage;
-				updated = true;
+			if (speed != value) {
+				speed = value;
+				result = BC_UPDATE_SPEED;
 			}
 		}
 
@@ -281,26 +280,33 @@ namespace BC_private {
 
 			if (doResetConsumption) {
 				doResetConsumption = false;
-				newMeterage = INFINITY;
+				value = INFINITY;
 				state = BC_STATE_RESET_PRESS;
+			} else value = LCD_getValue(lcdMeterage);
+
+			if (value != INFINITY && value != 0) {
+				if (lcdMeterageUnit == METERAGE_CONSUMPTION_MPG) value = round(10 * (MPG_TO_L100KM / value)) / 10;
+				else if (lcdMeterageUnit == METERAGE_CONSUMPTION_KML) value = round(10 * (100 / value)) / 10;
 			}
 
-			if (newMeterage != INFINITY && newMeterage != 0) {
-				if (lcdMeterageUnit == METERAGE_CONSUMPTION_MPG) newMeterage = round(10 * (MPG_TO_L100KM / newMeterage)) / 10;
-				else if (lcdMeterageUnit == METERAGE_CONSUMPTION_KML) newMeterage = round(10 * (100 / newMeterage)) / 10;
+			if (consumption != value) {
+				consumption = value;
+				result = BC_UPDATE_CONSUMPTION;
 			}
+		}
 
-			if (consumption != newMeterage) {
-				consumption = newMeterage;
-				updated = true;
+		if (result == BC_UPDATE_NOTHING) {
+			value = LCD_getValue(lcdTemperature);
+			if (temperature != value) {
+				temperature = value;
+				result = BC_UPDATE_TEMPERATURE;
 			}
-
 		}
 
 
 		if (state == BC_STATE_DONE) state = BC_STATE_MODE_PRESS;
 
-		return updated;
+		return result;
 	}
 
 	// обработчик SPI - прерывания
@@ -330,6 +336,11 @@ namespace BC_private {
 
 namespace BC {
 
+	const uint8_t UPDATE_FUEL = BC_UPDATE_FUEL;
+	const uint8_t UPDATE_SPEED = BC_UPDATE_SPEED;
+	const uint8_t UPDATE_CONSUMPTION = BC_UPDATE_CONSUMPTION;
+	const uint8_t UPDATE_TEMPERATURE = BC_UPDATE_TEMPERATURE;
+
 	// процедура инициализации, вызывается в setup(), принимает номера пинов
 	// на которые повешаны кнопки сброса и режима, а также интервал обновления показаний
 	void init(uint8_t PIN_MODE, uint8_t PIN_RESET, uint32_t UPDATE_INTERVAL) {
@@ -351,7 +362,7 @@ namespace BC {
 
 	// процедура обновления, вызывается в loop(), возвращает true, в случае,
 	// если доступны новые данные
-	bool update() {
+	uint8_t update() {
 
 		using namespace BC_private;
 
@@ -410,7 +421,7 @@ namespace BC {
 
 		}
 
-		return false;
+		return BC_UPDATE_NOTHING;
 	}
 
 	// выполняет сброс показателя средней скорости, сброс будет произведен
