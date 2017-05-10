@@ -241,13 +241,13 @@ namespace BC_private {
 	// кроме того, контроллирует флаги принудительного сброса показаний
 	// средней скорости и расхода, обновляя стэйт соответствующим образом
 	uint8_t doUpdate() {
-		
+
 		float value;
 		uint8_t result = BC_UPDATE_NOTHING;
 
 		// читаем показатель остатка топлива
 		if (lcdMeterageUnit == METERAGE_FUEL_KM || lcdMeterageUnit == METERAGE_FUEL_MILES) {
-			
+
 			// преобразуем LCD - значение в число
 			value = LCD_getValue(lcdMeterage);
 
@@ -301,7 +301,7 @@ namespace BC_private {
 			// в случае, если сбрасывать не нужно, преобразуем LCD - значение в число
 			else value = LCD_getValue(lcdMeterage);
 
-			// конвертируем в л/100км, в случае если мы прочитали что - то осмысленное и установлены км/л или галлоны 
+			// конвертируем в л/100км, в случае если мы прочитали что - то осмысленное и установлены км/л или галлоны
 			if (value != INFINITY && value != 0) {
 				if (lcdMeterageUnit == METERAGE_CONSUMPTION_MPG) value = round(10 * (MPG_TO_L100KM / value)) / 10;
 				else if (lcdMeterageUnit == METERAGE_CONSUMPTION_KML) value = round(10 * (100 / value)) / 10;
