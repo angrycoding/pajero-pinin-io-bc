@@ -43,22 +43,21 @@
 
 namespace KL_private {
 
-	uint8_t PIN_RX;
 	uint8_t PIN_TX;
 	uint8_t pidResponse[3];
 	SoftwareSerial *klSerial;
-	uint32_t asyncDelayTime = 0;
+	uint32_t waitingTime = 0;
 	int8_t state = KL_STATE_WAKEUP;
 
 	// при первом вызове возвращает 1
 	// при втором и последующем вызовах, в случае если время переданное аргументом
 	// не истекло с момента первого вызова - возвращает 2, в ином случае 0
-	uint8_t asyncDelay(uint32_t delay) {
+	uint8_t waiting(uint32_t delay) {
 		return (
 			// первый раз = 1
-			(asyncDelayTime == 0) ? (asyncDelayTime = millis(), 1) :
+			(waitingTime == 0) ? (waitingTime = millis(), 1) :
 			// время истекло = 0
-			(millis() - asyncDelayTime >= delay) ? (asyncDelayTime = 0) :
+			(millis() - waitingTime >= delay) ? (waitingTime = 0) :
 			// время не истекло = 2
 			2
 		);
@@ -67,10 +66,13 @@ namespace KL_private {
 	// при первом вызове, устанавливает соотв. значение и возвращает true
 	// при втором и последующем вызовах, в случае если время переаданное аргументом
 	// не истекло с момента первого вызова - возвращает true, в ином случае false
-	bool sendBit(bool value, uint32_t duration) {
-		switch (asyncDelay(duration)) {
+	bool sendingBit(bool value, uint32_t duration) {
+		switch (waiting(duration)) {
+			// первый раз
 			case 1: digitalWrite(PIN_TX, value);
+			// время не истекло
 			case 2: return true;
+			// время истекло
 			case 0: return false;
 		}
 	}
@@ -79,21 +81,15 @@ namespace KL_private {
 	// если указанное кол-во байт было принято в течении временного интервала
 	// между первым вызовом и KL_RECONNECT_DELAY и true в любом другом случае
 	// в случае таймаута, соотв. образом изменяет стэйт
-	bool waitForBytes(uint8_t count) {
-
-		// таймаут
-		if (!asyncDelay(KL_RECONNECT_DELAY)) {
-			// отправляем на стэйт который вернет признак ошибки
-			state = KL_STATE_DISCONNECTED;
-			return true;
-		}
-
-		// количество принятых байт не соответствует тому, что требуется
-		if (klSerial->available() != count) return true;
-
-		// считываем принятое в буфер
-		klSerial->readBytes(pidResponse, count);
-		return false;
+	bool waitingForBytes(uint8_t count) {
+		return (
+			// таймаут, отправляем на стэйт который вернет признак ошибки
+			!waiting(KL_RECONNECT_DELAY) ? (state = KL_STATE_DISCONNECTED, true) :
+			// количество принятых байт не соответствует тому, что требуется
+			klSerial->available() != count ? true :
+			// считываем принятое в буфер
+			(klSerial->readBytes(pidResponse, count), false)
+		);
 	}
 
 }
@@ -105,7 +101,7 @@ namespace KL {
 
 	void init(uint8_t PIN_RX, uint8_t PIN_TX) {
 		using namespace KL_private;
-		pinMode(KL_private::PIN_RX = PIN_RX, INPUT);
+		pinMode(PIN_RX, INPUT);
 		pinMode(KL_private::PIN_TX = PIN_TX, OUTPUT);
 		klSerial = new SoftwareSerial(PIN_RX, PIN_TX);
 		klSerial->begin(KL_SERIAL_SPEED);
@@ -119,12 +115,11 @@ namespace KL {
 
 			// выжидаем KL_RECONNECT_DELAY и переходим на следующий стэйт
 			case KL_STATE_DISCONNECT: {
-				if (asyncDelay(KL_RECONNECT_DELAY))
-					return KL_WRITE_INTERMEDIATE;
+				if (waiting(KL_RECONNECT_DELAY)) break;
 				state = KL_STATE_DISCONNECTED;
 			}
 
-			// нет ответа от ЭБУ
+			// нет ответа от ЭБУ, возвращаем флаг ошибки и готовимся к подключению
 			case KL_STATE_DISCONNECTED: {
 				state = KL_STATE_WAKEUP;
 				return KL_WRITE_FAIL;
@@ -132,15 +127,13 @@ namespace KL {
 
 			// до посылки адреса линия должна быть "1" в течении двух миллисекунд
 			case KL_STATE_WAKEUP: {
-				if (sendBit(HIGH, KL_INIT_DELAY))
-					return KL_WRITE_INTERMEDIATE;
+				if (sendingBit(HIGH, KL_INIT_DELAY)) break;
 				state = KL_STATE_STARTBIT;
 			}
 
 			// посылаем стартовый бит
 			case KL_STATE_STARTBIT: {
-				if (sendBit(LOW, KL_INTERBIT_DELAY))
-					return KL_WRITE_INTERMEDIATE;
+				if (sendingBit(LOW, KL_INTERBIT_DELAY)) break;
 				state = KL_STATE_A0BIT;
 			}
 
@@ -153,15 +146,14 @@ namespace KL {
 			case KL_STATE_A5BIT:
 			case KL_STATE_A6BIT:
 			case KL_STATE_A7BIT: {
-				if (sendBit(KL_ECU_ADDRESS & 1 << state, KL_INTERBIT_DELAY) || ++state != KL_STATE_STOPBIT) {
-					return KL_WRITE_INTERMEDIATE;
+				if (sendingBit(KL_ECU_ADDRESS & 1 << state, KL_INTERBIT_DELAY) || ++state != KL_STATE_STOPBIT) {
+					break;
 				}
 			}
 
 			// посылаем стоповый бит
 			case KL_STATE_STOPBIT: {
-				if (sendBit(HIGH, KL_INTERBIT_DELAY))
-					return KL_WRITE_INTERMEDIATE;
+				if (sendingBit(HIGH, KL_INTERBIT_DELAY)) break;
 				// очищаем приемный буфер от мусора
 				while (klSerial->available()) klSerial->read();
 				state = KL_STATE_SYNC;
@@ -169,10 +161,13 @@ namespace KL {
 
 			// ожидаем синхронизации
 			case KL_STATE_SYNC: {
-				if (waitForBytes(3)) return KL_WRITE_INTERMEDIATE;
+				if (waitingForBytes(3)) break;
 				// сравниваем паттерн синхронизации
-				if (pidResponse[0] != 0x55 || pidResponse[1] != 0xEF || pidResponse[2] != 0x85)
-					return (state = KL_STATE_DISCONNECT, KL_WRITE_INTERMEDIATE);
+				if (pidResponse[0] != 0x55 || pidResponse[1] != 0xEF || pidResponse[2] != 0x85) {
+					// неверный синхропаттерн, отключаемся
+					state = KL_STATE_DISCONNECT;
+					break;
+				}
 				state = KL_STATE_REQUEST;
 			}
 
@@ -184,21 +179,24 @@ namespace KL {
 
 			// ожидаем ответа ЭБУ и обрабатываем его
 			case KL_STATE_RESPONSE: {
-				if (waitForBytes(2)) return KL_WRITE_INTERMEDIATE;
+				if (waitingForBytes(2)) break;
 				// включаем счетчик ожидания минимального интервала между запросами
-				asyncDelay(KL_REQUEST_INTERVAL);
+				waiting(KL_REQUEST_INTERVAL);
 				state = KL_STATE_NEXT_REQUEST;
 				return KL_WRITE_SUCCESS;
 			}
 
 			// ожидаем истечения таймаута между запросами
 			case KL_STATE_NEXT_REQUEST: {
-				if (!asyncDelay(KL_REQUEST_INTERVAL))
+				if (!waiting(KL_REQUEST_INTERVAL))
 					state = KL_STATE_REQUEST;
-				return KL_WRITE_INTERMEDIATE;
+				break;
 			}
 
 		}
+
+		// возвращаем промежуточный результат
+		return KL_WRITE_INTERMEDIATE;
 	}
 
 	uint8_t read() {
