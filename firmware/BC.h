@@ -214,11 +214,10 @@ namespace BC_private {
 	// конвертирует 32х - битное число описывающее состояние
 	// виртуального LCD - дисплея в отображаемое значение
 	float LCD_getValue(uint32_t value) {
-		bool isFloat = (value >> 22 & 1);
-		bool isNegative = (value >> 23 & 1);
 		uint32_t D0 = LCD_getDigit(value & 0x7F);
-		if (D0 == LCD_CHAR_UNKNOWN || D0 == LCD_CHAR_SPACE) return INFINITY;
+		if (D0 >= LCD_CHAR_UNKNOWN || D0 == LCD_CHAR_SPACE) return INFINITY;
 		uint32_t D1 = LCD_getDigit(value >> 7 & 0x7F);
+		bool isFloat = (value >> 22 & 1);
 		if (D1 == LCD_CHAR_UNKNOWN || (D1 == LCD_CHAR_SPACE ? isFloat : D0 == LCD_CHAR_SPACE)) return INFINITY;
 		uint32_t D2 = LCD_getDigit(value >> 14 & 0x7F);
 		if (D2 == LCD_CHAR_UNKNOWN || (D2 != LCD_CHAR_SPACE && D1 == LCD_CHAR_SPACE)) return INFINITY;
@@ -229,7 +228,8 @@ namespace BC_private {
 		if (D1 != LCD_CHAR_SPACE) result += D1 * 10;
 		if (D0 != LCD_CHAR_SPACE) result += D0;
 		if (isFloat) result /= 10;
-		if (isNegative) result = -result;
+		// признак отрицательного значения
+		if (value >> 23 & 1) result = -result;
 		return result;
 	}
 
@@ -245,72 +245,85 @@ namespace BC_private {
 		float value;
 		uint8_t result = BC_UPDATE_NOTHING;
 
-		// читаем показатель остатка топлива
-		if (lcdMeterageUnit == METERAGE_FUEL_KM || lcdMeterageUnit == METERAGE_FUEL_MILES) {
+		switch (lcdMeterageUnit) {
+			
+			// читаем показатель остатка топлива
+			case METERAGE_FUEL_KM:
+			case METERAGE_FUEL_MILES: {
 
-			// преобразуем LCD - значение в число
-			value = LCD_getValue(lcdMeterage);
+				// преобразуем LCD - значение в число
+				value = LCD_getValue(lcdMeterage);
 
-			// конвертируем в км, в случае если установлены мили и мы прочитали что - то осмысленное
-			if (value != INFINITY && value != 0 && lcdMeterageUnit == METERAGE_FUEL_MILES) {
-				value = ceil(value * MILE_TO_KM);
+				// конвертируем в км, в случае если установлены мили и мы прочитали что - то осмысленное
+				if (lcdMeterageUnit == METERAGE_FUEL_MILES && value != INFINITY && value != 0) {
+					value = ceil(value * MILE_TO_KM);
+				}
+
+				// проверяем изменилось - ли значение
+				if (fuel != value) {
+					fuel = value;
+					result = BC_UPDATE_FUEL;
+				}
+
+				break;
 			}
 
-			// проверяем изменилось - ли значение
-			if (fuel != value) {
-				fuel = value;
-				result = BC_UPDATE_FUEL;
-			}
-		}
+			// читаем показатель средней скорости
+			case METERAGE_SPEED_KMH:
+			case METERAGE_SPEED_MPH: {
 
-		// читаем показатель средней скорости
-		else if (lcdMeterageUnit == METERAGE_SPEED_KMH || lcdMeterageUnit == METERAGE_SPEED_MPH) {
+				// проверяем нужно ли сбросить показатель
+				if (doResetSpeed) {
+					doResetSpeed = false;
+					value = INFINITY;
+					state = BC_STATE_RESET_PRESS;
+				}
 
-			// проверяем нужно ли сбросить показатель
-			if (doResetSpeed) {
-				doResetSpeed = false;
-				value = INFINITY;
-				state = BC_STATE_RESET_PRESS;
-			}
+				// в случае, если сбрасывать не нужно, преобразуем LCD - значение в число
+				else value = LCD_getValue(lcdMeterage);
 
-			// в случае, если сбрасывать не нужно, преобразуем LCD - значение в число
-			else value = LCD_getValue(lcdMeterage);
+				// конвертируем в км/ч, в случае если установлены мили и мы прочитали что - то осмысленное
+				if (lcdMeterageUnit == METERAGE_SPEED_MPH && value != INFINITY && value != 0) {
+					value = ceil(value * MILE_TO_KM);
+				}
 
-			// конвертируем в км/ч, в случае если установлены мили и мы прочитали что - то осмысленное
-			if (value != INFINITY && value != 0 && lcdMeterageUnit == METERAGE_SPEED_MPH) {
-				value = ceil(value * MILE_TO_KM);
-			}
+				// проверяем изменилось - ли значение
+				if (speed != value) {
+					speed = value;
+					result = BC_UPDATE_SPEED;
+				}
 
-			// проверяем изменилось - ли значение
-			if (speed != value) {
-				speed = value;
-				result = BC_UPDATE_SPEED;
-			}
-		}
-
-		// читаем показатель расхода
-		else if (lcdMeterageUnit == METERAGE_CONSUMPTION_L100KM || lcdMeterageUnit == METERAGE_CONSUMPTION_KML || lcdMeterageUnit == METERAGE_CONSUMPTION_MPG) {
-
-			// проверяем нужно ли сбросить показатель
-			if (doResetConsumption) {
-				doResetConsumption = false;
-				value = INFINITY;
-				state = BC_STATE_RESET_PRESS;
+				break;
 			}
 
-			// в случае, если сбрасывать не нужно, преобразуем LCD - значение в число
-			else value = LCD_getValue(lcdMeterage);
+			// читаем показатель расхода
+			case METERAGE_CONSUMPTION_L100KM:
+			case METERAGE_CONSUMPTION_KML:
+			case METERAGE_CONSUMPTION_MPG: {
 
-			// конвертируем в л/100км, в случае если мы прочитали что - то осмысленное и установлены км/л или галлоны
-			if (value != INFINITY && value != 0) {
-				if (lcdMeterageUnit == METERAGE_CONSUMPTION_MPG) value = round(10 * (MPG_TO_L100KM / value)) / 10;
-				else if (lcdMeterageUnit == METERAGE_CONSUMPTION_KML) value = round(10 * (100 / value)) / 10;
-			}
+				// проверяем нужно ли сбросить показатель
+				if (doResetConsumption) {
+					doResetConsumption = false;
+					value = INFINITY;
+					state = BC_STATE_RESET_PRESS;
+				}
 
-			// проверяем изменилось - ли значение
-			if (consumption != value) {
-				consumption = value;
-				result = BC_UPDATE_CONSUMPTION;
+				// в случае, если сбрасывать не нужно, преобразуем LCD - значение в число
+				else value = LCD_getValue(lcdMeterage);
+
+				// конвертируем в л/100км, в случае если мы прочитали что - то осмысленное и установлены км/л или галлоны
+				if (value != INFINITY && value != 0) {
+					if (lcdMeterageUnit == METERAGE_CONSUMPTION_MPG) value = round(10 * (MPG_TO_L100KM / value)) / 10;
+					else if (lcdMeterageUnit == METERAGE_CONSUMPTION_KML) value = round(10 * (100 / value)) / 10;
+				}
+
+				// проверяем изменилось - ли значение
+				if (consumption != value) {
+					consumption = value;
+					result = BC_UPDATE_CONSUMPTION;
+				}
+
+				break;
 			}
 		}
 
