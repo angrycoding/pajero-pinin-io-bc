@@ -54,6 +54,8 @@ namespace KL_private {
 	// не истекло с момента первого вызова - возвращает 2, в ином случае 0
 	uint8_t waiting(uint32_t delay) {
 		return (
+			// сброс таймера
+			(delay == 0) ? (waitingTime = 0) :
 			// первый раз = 1
 			(waitingTime == 0) ? (waitingTime = millis(), 1) :
 			// время истекло = 0
@@ -87,8 +89,8 @@ namespace KL_private {
 			!waiting(KL_RECONNECT_DELAY) ? (state = KL_STATE_DISCONNECTED, true) :
 			// количество принятых байт не соответствует тому, что требуется
 			klSerial->available() != count ? true :
-			// считываем принятое в буфер
-			(klSerial->readBytes(pidResponse, count), false)
+			// сбрасываем таймер и считываем принятое в буфер
+			(waiting(0), klSerial->readBytes(pidResponse, count), false)
 		);
 	}
 
