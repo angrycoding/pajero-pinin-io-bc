@@ -212,30 +212,30 @@ void loop() {
 			RPC::write(PID_BC_FUEL, BC::getFuel());
 			break;
 
-		case BC::UPDATE_SPEED:
-			RPC::write(PID_BC_SPEED, BC::getSpeed());
+		case BC::UPDATE_TEMPERATURE:
+			RPC::write(PID_BC_TEMPERATURE, BC::getTemperature());
 			break;
 
 		case BC::UPDATE_CONSUMPTION:
 			RPC::write(PID_BC_CONSUMPTION, BC::getConsumption());
 			break;
 
-		case BC::UPDATE_TEMPERATURE:
-			RPC::write(PID_BC_TEMPERATURE, BC::getTemperature());
+		case BC::UPDATE_SPEED:
+			RPC::write(PID_BC_SPEED, BC::getSpeed());
 			break;
 
 	}
 
 	switch (KL::write(PIDS[pidIndex])) {
 
-		case KL::WRITE_FAIL:
-			pidIndex = 0;
-			RPC::write(PID_KL_ERROR_COUNT, ++errorCount);
-			break;
-
 		case KL::WRITE_SUCCESS:
 			RPC::write(PIDS[pidIndex++], KL::read());
 			if (pidIndex == sizeof(PIDS)) pidIndex = 0;
+			break;
+
+		case KL::WRITE_FAIL:
+			pidIndex = 0;
+			RPC::write(PID_KL_ERROR_COUNT, ++errorCount);
 			break;
 
 	}
