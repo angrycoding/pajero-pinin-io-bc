@@ -1,0 +1,47 @@
+@import url('reset.css');
+
+body {
+	color: white;
+	display: flex;
+	font-size: 24px;
+	position: relative;
+	text-shadow: 1px 1px #585858;
+	background: linear-gradient(to bottom, #000000 0%, #585858 4px,#000000 100%);
+}
+
+
+div {
+	flex: 1;
+	display: flex;
+	align-items: center;
+	position: relative;
+	flex-direction: column;
+	justify-content: center;
+}
+
+div:before {
+	top: 3px;
+	width: 2px;
+	bottom: 0px;
+	left: -1px;
+	content: ' ';
+	display: block;
+	position: absolute;
+	box-sizing: border-box;
+	background-color: black;
+	border-right: 1px solid #585858;
+}
+
+div:first-child:before {
+	display: none;
+}
+
+div.pressed {
+	text-shadow: 1px 1px black;
+	background: linear-gradient(to bottom, #000000 0%, rgba(40,92,156, 1) 4px,#3E80EA 100%);
+}
+
+label {
+	font-size: 0.5em;
+	text-align: center;
+}

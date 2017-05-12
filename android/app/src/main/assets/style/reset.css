@@ -1,0 +1,10 @@
+* {
+	margin: 0px;
+	padding: 0px;
+	-webkit-user-select: none;
+}
+
+html, body {
+	width: 100%;
+	height: 100%;
+}

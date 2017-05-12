@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+		<link rel="stylesheet" type="text/css" href="style/reset.css" />
+		<style>
+			div {
+				padding: 12px;
+				font-size: 22px;
+				border-bottom: 1px solid red;
+			}
+
+			.selected {
+				color: white;
+				text-shadow: 1px 1px black;
+				background: linear-gradient(to bottom, #000000 0%, rgba(40,92,156, 1) 1%, #3E80EA 99%, rgba(40,92,156, 1) 100%);
+			}
+		</style>
+	</head>
+	<body>
+
+		<script src="script/jquery.js"></script>
+		<script>
+
+			var sensors = JSON.parse(preferences.getSensors());
+			var selectedType = window.location.hash.slice(1);
+
+
+			for (var c = 0; c < sensors.length; c++) {
+				var sensor = sensors[c];
+				var sensorEl = $('<div />');
+				if (sensor.type === selectedType)
+					sensorEl.addClass('selected');
+				sensorEl.addClass('sensor-type-' + sensor.type);
+				sensorEl.html(sensor.label);
+				sensorEl.appendTo('body');
+			}
+
+			$(window).on('hashchange', function() {
+				$('.selected').removeClass('selected');
+				$('.sensor-type-' + window.location.hash.slice(1)).addClass('selected');
+			});
+		</script>
+	</body>
+</html>

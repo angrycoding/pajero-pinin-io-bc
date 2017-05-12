@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+          package="com.angrycoding.splinter">
+
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
+    <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS"/>
+
+    <uses-feature android:name="android.hardware.usb.host"/>
+
+    <application
+        android:name=".MyApplication"
+        android:allowBackup="true"
+        android:label="@string/application_name"
+        android:icon="@mipmap/ic_launcher">
+
+        <activity
+            android:name=".HomeActivity"
+            android:clearTaskOnLaunch="true"
+            android:configChanges="orientation|keyboardHidden"
+            android:excludeFromRecents="true"
+            android:launchMode="standard"
+            android:stateNotNeeded="true"
+            android:label="@string/launcher_label"
+            android:theme="@style/HomeActivityTheme"
+            android:taskAffinity="com.angrycoding.splinter.HomeActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.HOME"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+            </intent-filter>
+        </activity>
+
+        <service
+            android:name=".StatusBarService"
+            android:enabled="true"
+            android:exported="false"
+            android:label="@string/service_label"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/accesibilityservice"/>
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService"/>
+            </intent-filter>
+        </service>
+
+        <activity
+            android:taskAffinity=""
+            android:name=".SensorSettings"
+            android:label="@string/sensor_settings_label">
+        </activity>
+
+        <activity android:name=".PreferencesActivity"
+                  android:label="@string/preferences_label"
+                  android:taskAffinity="com.angrycoding.splinter.PreferencesActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+        </activity>
+
+    </application>
+
+</manifest>

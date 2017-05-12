@@ -1,0 +1,155 @@
+<script src="script/jquery.js"></script>
+<script type="text/javascript">
+// hello
+// world
+	$(document).on('_touchstart', '.layers', function(event) {
+
+		var layers = $(this);
+		var lWidth = $(layers[0]).outerWidth();
+
+		layers.one('scroll', function() {
+
+			layers.one('touchend', function(event) {
+
+				var m = layers.scrollLeft();
+				layers[0].style.overflowX = 'hidden';
+				layers.scrollLeft(0);
+
+				$($('.layer')[0]).css({
+					'margin-left': (-m) + 'px'
+				})
+
+				// layers[0].style.overflowX = '';
+				// layers.scrollLeft(m);
+				// layers[0].style.overflowX = 'auto';
+
+				// var foo = layers.scrollLeft();
+				return;
+
+				// layers.scrollLeft(foo + 1);
+				// layers.scrollLeft(foo);
+
+				// console.info(1)
+
+				if (layers.scrollLeft() < lWidth / 2) {
+					$('.layers').animate({
+						'scrollLeft': 0
+					}, function() {
+						layers[0].style.overflowX = '';
+					})
+				}
+
+				else {
+					$('.layers').animate({
+						'scrollLeft': lWidth
+					}, function() {
+						layers[0].style.overflowX = '';
+					})
+				}
+
+			});
+		});
+
+	});
+
+
+</script>
+
+
+<style>
+
+	html, body {
+		background-color: transparent;
+		width: 100%;
+		height: 100%;
+		padding: 0px;
+		margin: 0px
+	}
+
+	.layers {
+		position: absolute; top: 0px; bottom: 0px; left: 0px; right: 0px;
+	}
+
+	.wrapper {
+		position: absolute; top: -16px; bottom: 0px; left: -16px; right: 0px; overflow: hidden; overflow-x: auto; display: flex;
+	}
+
+	.wrapper::-webkit-scrollbar {
+		display: none;
+	}
+
+	.layer {
+		width: 100%;
+		height: 100%;
+		flex-shrink: 0
+	}
+
+	.item {
+		 background-size: 80% auto;
+		 background-position: center center;
+		 background-repeat: no-repeat;
+		 position: absolute;
+		 bottom: 0px;
+		 right: 0px;
+		 left: 16px;
+		 top: 16px;
+		 border: 1px solid red;
+		 box-sizing: border-box;
+	}
+
+
+</style>
+
+
+<div class="layers">
+
+	<div class="wrapper">
+
+
+		<div class="layer"></div>
+
+		<div class="layer"></div>
+
+		<div class="layer"></div>
+
+
+	</div>
+
+
+</div>
+
+
+		<script type="text/javascript">
+
+			var apps = JSON.parse(preferences.getApplications());
+
+			var allLayers = $('.layer');
+			var target = $(allLayers[0]);
+			var count = 0;
+			var layerId = 0;
+
+			while (apps.length) {
+				var app = apps.pop();
+
+				console.dir(JSON.stringify(app));
+
+				var el = $('<div style="float: left; width: 25%; height: 33.333%; position: relative;">');
+				el.append('<div name="' + app.name + '" class="item" style="background-image: url(${app.icon});"></div>');
+
+				target.append(el);
+
+
+				count++;
+				if (count === 12) {
+				layerId++;
+				count = 0;
+					target = $(allLayers[layerId])
+				}
+			}
+
+			$(document).on('click', '.item', function() {
+				var pkgName = this.getAttribute('name');
+				preferences.runApplication(pkgName);
+			});
+
+		</script>

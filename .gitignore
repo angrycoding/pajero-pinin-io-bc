@@ -1,1 +1,10 @@
 node_modules
+*.iml
+.svn
+.idea
+.gradle
+.DS_Store
+/android/local.properties
+/android/build
+/android/captures
+/android/app/build

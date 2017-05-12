@@ -1,0 +1,8 @@
+<resources>
+    <string name="application_name">Splinter</string>
+    <string name="sensor_settings_label">Настройка типа индикатора</string>
+    <string name="service_label">Сервис панели индикаторов</string>
+    <string name="service_description">Сервис панели индикаторов - расширенное описание</string>
+    <string name="launcher_label">Домашний экран</string>
+    <string name="preferences_label">Настройки</string>
+</resources>
