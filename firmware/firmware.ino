@@ -20,15 +20,17 @@
 // минимальный интервал между обновлениями БК
 #define BC_UPDATE_INTERVAL_MS 2000
 
-#define CMD_RESET_SPEED 65
-#define CMD_RESET_CONSUMPTION 66
+#define CMD_BC_RESET_SPEED 65
+#define CMD_BC_RESET_CONSUMPTION 66
+#define CMD_BC_FORCE_UPDATE 67
 
 
-#define PID_BC_FUEL 0xFB
-#define PID_BC_SPEED 0xFC
-#define PID_BC_CONSUMPTION 0xFD
-#define PID_BC_TEMPERATURE 0xFE
-#define PID_KL_ERROR_COUNT 0xFF
+#define PID_BC_FUEL 0xFA
+#define PID_BC_SPEED 0xFB
+#define PID_BC_CONSUMPTION 0xFC
+#define PID_BC_TEMPERATURE 0xFD
+#define PID_KL_ERROR_COUNT 0xFE
+#define PID_SYS_STARTED 0xFF
 
 
 
@@ -188,14 +190,16 @@ void setup() {
 	Serial.begin(SERIAL_SPEED);
 	KL::init(PIN_KL_RX, PIN_KL_TX);
 	BC::init(PIN_BC_MODE, PIN_BC_RESET, BC_UPDATE_INTERVAL_MS);
+	RPC::writeNull(PID_SYS_STARTED);
 	// otherwise there is a risk to send something several times in millis() - time
 	delay(1);
 }
 
 void serialEvent() {
-	if (RPC::process()) switch (RPC::read()) {
-		case CMD_RESET_SPEED: BC::resetSpeed(); break;
-		case CMD_RESET_CONSUMPTION: BC::resetConsumption(); break;
+	if (RPC::process()) switch (RPC::readKey()) {
+		case CMD_BC_RESET_SPEED: BC::resetSpeed(); break;
+		case CMD_BC_RESET_CONSUMPTION: BC::resetConsumption(); break;
+		case CMD_BC_FORCE_UPDATE: BC::forceUpdate(); break;
 	}
 }
 
@@ -209,19 +213,19 @@ void loop() {
 	switch (BC::update()) {
 
 		case BC::UPDATE_FUEL:
-			RPC::write(PID_BC_FUEL, BC::getFuel());
+			RPC::writeFloat(PID_BC_FUEL, BC::getFuel());
 			break;
 
 		case BC::UPDATE_TEMPERATURE:
-			RPC::write(PID_BC_TEMPERATURE, BC::getTemperature());
+			RPC::writeFloat(PID_BC_TEMPERATURE, BC::getTemperature());
 			break;
 
 		case BC::UPDATE_CONSUMPTION:
-			RPC::write(PID_BC_CONSUMPTION, BC::getConsumption());
+			RPC::writeFloat(PID_BC_CONSUMPTION, BC::getConsumption());
 			break;
 
 		case BC::UPDATE_SPEED:
-			RPC::write(PID_BC_SPEED, BC::getSpeed());
+			RPC::writeFloat(PID_BC_SPEED, BC::getSpeed());
 			break;
 
 	}
@@ -229,13 +233,13 @@ void loop() {
 	switch (KL::write(PIDS[pidIndex])) {
 
 		case KL::WRITE_SUCCESS:
-			RPC::write(PIDS[pidIndex++], KL::read());
+			RPC::writeUInt8(PIDS[pidIndex++], KL::read());
 			if (pidIndex == sizeof(PIDS)) pidIndex = 0;
 			break;
 
 		case KL::WRITE_FAIL:
 			pidIndex = 0;
-			RPC::write(PID_KL_ERROR_COUNT, ++errorCount);
+			RPC::writeUInt8(PID_KL_ERROR_COUNT, ++errorCount);
 			break;
 
 	}

@@ -1,19 +1,22 @@
 #ifndef RPC_h
 #define RPC_h
 
-#define REQUEST_B0 0x28
-#define REQUEST_B1 0x7B
-#define REQUEST_B3 0x7D
-#define REQUEST_B4 0x29
+#define RPC_KEY 0
+#define RPC_VTYPE 1
+#define RPC_CRC 2
 
-#define RESPONSE_UINT8 'B'
-#define RESPONSE_UINT32 'L'
-#define RESPONSE_FLOAT 'F'
+#define RPC_NULL 'N'
+#define RPC_UINT8 'B'
+#define RPC_UINT32 'L'
+#define RPC_FLOAT 'F'
 
 namespace RPC_private {
 
-	uint8_t command;
-	uint8_t position = 0;
+	uint8_t rxBuffer[7];
+	uint8_t txBuffer[7];
+
+	uint8_t state = 0;
+	uint8_t buffSize = 0;
 
 	uint8_t iso_checksum(uint8_t *data, uint8_t length) {
 		uint8_t result = 0;
@@ -27,43 +30,89 @@ namespace RPC_private {
 namespace RPC {
 
 	bool process() {
+		
 		using namespace RPC_private;
-		while (Serial.available()) switch (position++) {
-			case 0: if (Serial.read() != REQUEST_B0) position = 0; break;
-			case 1: if (Serial.read() != REQUEST_B1) position = 0; break;
-			case 2: command = Serial.read(); break;
-			case 3: if (Serial.read() != REQUEST_B3) position = 0; break;
-			case 4: if (position = 0, Serial.read() == REQUEST_B4) return true; break;
+
+		while (Serial.available()) switch (state) {
+
+			// читаем ключ
+			case RPC_KEY: {
+				rxBuffer[buffSize = 0] = Serial.read();
+				state = RPC_VTYPE;
+				break;
+			}
+
+			// читаем тип значения
+			case RPC_VTYPE: {
+				switch (rxBuffer[++buffSize] = Serial.read()) {
+					case RPC_NULL: state = RPC_CRC; break;
+					case RPC_UINT8: state = RPC_UINT8; break;
+					default: state = RPC_KEY; break;
+				}
+				break;
+			}
+
+			case RPC_UINT8: {
+				rxBuffer[++buffSize] = Serial.read();
+				state = RPC_CRC;
+				break;
+			}
+
+			// проверяем контрольную сумму
+			case RPC_CRC: {
+				state = RPC_KEY;
+				if (Serial.read() == iso_checksum(rxBuffer, ++buffSize))
+					return true;
+				break;
+			}
 		}
+
 		return false;
 	}
 
-	uint8_t read() {
+	uint8_t readKey() {
 		using namespace RPC_private;
-		return command;
+		return rxBuffer[0];
 	}
 
-	void write(uint8_t key, uint8_t value) {
+	uint8_t readUInt8() {
 		using namespace RPC_private;
-		uint8_t response[4] = {RESPONSE_UINT8, value, key, 0};
-		response[3] = iso_checksum(response, 3);
-		Serial.write(response, 4);
+		return rxBuffer[2];
 	}
 
-	void write(uint8_t key, uint32_t value) {
+	void writeNull(uint8_t key) {
 		using namespace RPC_private;
-		uint8_t response[7] = {RESPONSE_UINT32, 0, 0, 0, 0, key, 0};
-		*reinterpret_cast<uint32_t*>(&response[1]) = value;
-		response[6] = iso_checksum(response, 6);
-		Serial.write(response, 7);
+		txBuffer[0] = RPC_NULL;
+		txBuffer[1] = key;
+		txBuffer[2] = iso_checksum(txBuffer, 2);
+		Serial.write(txBuffer, 3);
 	}
 
-	void write(uint8_t key, float value) {
+	void writeUInt8(uint8_t key, uint8_t value) {
 		using namespace RPC_private;
-		uint8_t response[7] = {RESPONSE_FLOAT, 0, 0, 0, 0, key, 0};
-		*reinterpret_cast<float*>(&response[1]) = value;
-		response[6] = iso_checksum(response, 6);
-		Serial.write(response, 7);
+		txBuffer[0] = RPC_UINT8;
+		txBuffer[1] = value;
+		txBuffer[2] = key;
+		txBuffer[3] = iso_checksum(txBuffer, 3);
+		Serial.write(txBuffer, 4);
+	}
+
+	void writeUInt32(uint8_t key, uint32_t value) {
+		using namespace RPC_private;
+		txBuffer[0] = RPC_UINT32;
+		*reinterpret_cast<uint32_t*>(&txBuffer[1]) = value;
+		txBuffer[5] = key;
+		txBuffer[6] = iso_checksum(txBuffer, 6);
+		Serial.write(txBuffer, 7);
+	}
+
+	void writeFloat(uint8_t key, float value) {
+		using namespace RPC_private;
+		txBuffer[0] = RPC_FLOAT;
+		*reinterpret_cast<float*>(&txBuffer[1]) = value;
+		txBuffer[5] = key;
+		txBuffer[6] = iso_checksum(txBuffer, 6);
+		Serial.write(txBuffer, 7);
 	}
 
 }

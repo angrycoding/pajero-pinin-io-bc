@@ -186,6 +186,8 @@ namespace BC_private {
 	bool doResetSpeed = false;
 	// сбросить расход топлива при следующем переключении режима
 	bool doResetConsumption = false;
+	// статус принудительного обновления всех показателей
+	uint8_t forceUpdateState = BC_UPDATE_NOTHING;
 
 	volatile uint8_t state;
 	volatile uint32_t lcdMeterage;
@@ -406,6 +408,7 @@ namespace BC {
 
 			// начинаем получать данные от мастера
 			case BC_STATE_IDLE:
+				if (forceUpdateState) return forceUpdateState--;
 				lcdMeterage = 0;
 				lcdTemperature = 0;
 				lcdMeterageUnit = 0;
@@ -465,6 +468,15 @@ namespace BC {
 		}
 
 		return BC_UPDATE_NOTHING;
+	}
+
+	// принудительно обновляет все показатели
+	// вне зависимости от того изменились они или нет
+	void forceUpdate() {
+		using namespace BC_private;
+		if (forceUpdateState == BC_UPDATE_NOTHING) {
+			forceUpdateState = BC_UPDATE_TEMPERATURE;
+		}
 	}
 
 	// выполняет сброс показателя средней скорости, сброс будет произведен

@@ -81,6 +81,90 @@ var box2 = blessed.table({
 	data: POI_DATA_ARR
 });
 
+var buttonResetSpeed = blessed.button({
+	parent: screen,
+	bottom: 0,
+	left: 0,
+	tags: true,
+	// width: 25,
+	// height: 3,
+	align: 'center',
+	content: 'БК - сброс скорости',
+	mouse: true,
+	shrink: true,
+	padding: {
+		left: 2,
+		right: 2,
+		top: 1,
+		bottom: 1
+	},
+	style: {
+    bg: 'blue',
+    // hover: {
+    //   bg: 'red'
+    // }
+  }
+});
+
+var buttonResetConsumption = blessed.button({
+	parent: screen,
+	bottom: 0,
+	left: 24,
+	tags: true,
+	// width: 25,
+	// height: 3,
+	align: 'center',
+	content: 'БК - сброс расхода',
+	mouse: true,
+	shrink: true,
+	padding: {
+		left: 2,
+		right: 2,
+		top: 1,
+		bottom: 1
+	},
+	style: {
+    bg: 'blue',
+    // hover: {
+    //   bg: 'red'
+    // }
+  }
+});
+
+var buttonForceUpdate = blessed.button({
+	parent: screen,
+	bottom: 0,
+	left: 47,
+	tags: true,
+	// width: 25,
+	// height: 3,
+	align: 'center',
+	content: 'БК - обновить показатели',
+	mouse: true,
+	shrink: true,
+	padding: {
+		left: 2,
+		right: 2,
+		top: 1,
+		bottom: 1
+	},
+	style: {
+    bg: 'blue',
+    // hover: {
+    //   bg: 'red'
+    // }
+  }
+});
+
+function buttonMouseDown() {
+	if (!this.blaBla) {
+		this.blaBla = true;
+		screen.on('mouseup', () => (this.style.inverse = false, screen.render()))
+	}
+	this.style.inverse = true;
+	screen.render();
+}
+
 
 function onMouseMove(event, click) {
 
@@ -144,6 +228,25 @@ function onMouseMove(event, click) {
 	screen.render();
 
 }
+
+
+buttonResetSpeed.on('mousedown', buttonMouseDown);
+buttonForceUpdate.on('mousedown', buttonMouseDown);
+buttonResetConsumption.on('mousedown', buttonMouseDown);
+
+
+
+buttonResetSpeed.on('click', function() {
+	rpc.writeNull(65);
+})
+
+buttonResetConsumption.on('click', function() {
+	rpc.writeNull(66);
+})
+
+buttonForceUpdate.on('click', function() {
+	rpc.writeNull(67);
+})
 
 box.on('mouseout', function() {
 	while (selectedCells.length)

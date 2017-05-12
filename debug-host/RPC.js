@@ -73,6 +73,12 @@ RPC.prototype.exit = function(ret) {
 	this.sp.close(ret);
 };
 
+RPC.prototype.writeNull = function(key) {
+	var buffer = [key, RPC_NULL];
+	buffer.push(iso_checksum(buffer));
+	this.sp.write(buffer);
+};
+
 RPC.prototype.processIncoming = function(data) {
 
 	var available, buffer = this.buffer;
