@@ -1,0 +1,71 @@
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+<script type="text/javascript" src="script/canvasjs.js"></script>
+<script src="script/socket.io.js"></script>
+<script type="text/javascript">
+
+	var socket = io.connect('http://localhost:9999');
+
+
+
+
+
+
+	window.onload = function () {
+
+		var dataPoints = [];
+
+		var gasChart = new CanvasJS.Chart("gasChartContainer",{
+			// title: {text: "Содержание газа"},
+			// height: 600,
+			axisX:{
+		        gridColor: "#CDCDCD" ,
+		        gridThickness: 1,
+				labelFontSize: 10,
+		        valueFormatString: 'H:mm:ss'
+		      },
+
+			axisY:{
+				// interval: 10,
+				labelFontSize: 10,
+				gridThickness: 1,
+				gridColor: "#CDCDCD"
+			},
+
+			data: [{
+				type: "line",
+				dataPoints: dataPoints
+			}]
+		});
+
+
+		var dataLength = 100;
+
+		socket.on('pid', function(key, value) {
+
+			var time = new Date();
+
+			if (!dataPoints[key])
+				dataPoints.push({label: key, y: value * Math.random() * 10});
+
+			else dataPoints[key].y = value * Math.random() * 10;
+				// dp.push({x: key, y: value * Math.random() * 10})
+				// if (dp.length > dataLength) dp.shift();
+			// }
+
+			// second.push({x: time, y: value * 3});
+			// if (second.length > dataLength) second.shift();
+
+			// gases.push({x: time, y: value});
+			// if (gases.length > dataLength) gases.shift();
+			gasChart.render();
+
+		});
+
+
+	}
+
+</script>
+
+
+
+<div id="gasChartContainer" style="position: absolute; left: 0px; top: 0px; right: 0px; bottom: 0px;"></div>

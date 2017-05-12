@@ -1,4 +1,5 @@
 var RPC = require('./RPC');
+var io = require('socket.io')(9999);
 var blessed = require('blessed');
 var rpc = new RPC('/dev/tty.usbserial-A921PBNR', 115200);
 
@@ -318,11 +319,11 @@ function updatePid(pid, value) {
 // var pid = 0;
 
 // setInterval(function() {
-// 	updatePid(pid, Math.round(Math.random() * 1000));
-// 	pid++;
-// 	if (pid === 256) pid = 0;
-// }, 0)
+// 	io.sockets.emit('pid', pid++, Math.random());
+// 	if (pid === 30) pid = 0;
+// }, 50)
 
 rpc.on('pid', function(key, value) {
 	updatePid(key, value);
+	io.sockets.emit('pid', key, value);
 });
