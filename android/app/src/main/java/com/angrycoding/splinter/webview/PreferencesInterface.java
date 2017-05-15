@@ -10,8 +10,6 @@ import android.preference.PreferenceManager;
 import android.util.Log;
 import android.webkit.JavascriptInterface;
 
-import com.angrycoding.splinter.SensorSettings;
-
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -77,35 +75,7 @@ public class PreferencesInterface {
         return result.toString();
     }
 
-    @JavascriptInterface
-    public void setSensorType(String area, String type) {
 
-        Intent sensorSettings = new Intent(context, SensorSettings.class);
-//        sensorSettings
-
-        sensorSettings.addFlags(
-                Intent.FLAG_ACTIVITY_NEW_TASK |
-//                        Intent.FLAG_ACTIVITY_CLEAR_TASK |
-                        Intent.FLAG_ACTIVITY_SINGLE_TOP |
-                        Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS |
-                        Intent.FLAG_ACTIVITY_NO_ANIMATION |
-                        Intent.FLAG_ACTIVITY_CLEAR_TOP
-        );
-
-
-        sensorSettings.putExtra("area", area);
-        sensorSettings.putExtra("type", type);
-
-        PendingIntent pendingIntent = PendingIntent.getActivity(context, 0, sensorSettings, PendingIntent.FLAG_UPDATE_CURRENT);
-
-        try {
-            pendingIntent.send();
-        } catch (PendingIntent.CanceledException e) {
-            e.printStackTrace();
-        }
-
-//        this.context.startActivity(sensorSettings);
-    }
 
     @JavascriptInterface
     public boolean getBoolean(String key) {
