@@ -195,8 +195,8 @@ namespace BC_private {
 	volatile uint8_t lcdMeterageUnit;
 
 	// конвертирует 7 - битную маску сегмента полученную из 32х - битного числа
-	// описывающего состояние виртуального LCD - дисплея в отображаемое значение
-	uint32_t LCD_getDigit(uint32_t value) {
+	// описывающего состояние виртуального LCD - дисплея в отображаемую цифру
+	uint8_t LCD_getDigit(uint32_t value) {
 		switch (value) {
 			case LCD_CHAR_0: return 0;
 			case LCD_CHAR_1: return 1;
@@ -214,28 +214,28 @@ namespace BC_private {
 	}
 
 	// конвертирует 32х - битное число описывающее состояние
-	// виртуального LCD - дисплея в отображаемое значение
+	// виртуального LCD - дисплея в отображаемое число
 	float LCD_getValue(uint32_t value) {
 		// получаем разряд единиц
-		uint32_t D0 = LCD_getDigit(value & 0x7F);
+		uint8_t D0 = LCD_getDigit(value & 0x7F);
 		// в случае если он пустой или неопознан, возвращаем ошибку
 		if (D0 >= LCD_CHAR_SPACE) return INFINITY;
 		// получаем разряд десятков
-		uint32_t D1 = LCD_getDigit(value >> 7 & 0x7F);
+		uint8_t D1 = LCD_getDigit(value >> 7 & 0x7F);
 		// получаем признак дробного
 		bool isFloat = (value >> 22 & 1);
-		// проверяем
-		if (D1 == LCD_CHAR_UNKNOWN || (D1 == LCD_CHAR_SPACE ? isFloat : D0 == LCD_CHAR_SPACE)) return INFINITY;
+		// в случае если цифра неопознана, либо отсутствует но есть точка, возвращаем ошибку 
+		if (D1 == LCD_CHAR_UNKNOWN || (D1 == LCD_CHAR_SPACE && isFloat)) return INFINITY;
 		// получаем разряд сотен
-		uint32_t D2 = LCD_getDigit(value >> 14 & 0x7F);
-		// проверяем
+		uint8_t D2 = LCD_getDigit(value >> 14 & 0x7F);
+		// в случае если цифра неопознана, либо предыдущая цифра отсутствует, возвращаем ошибку
 		if (D2 == LCD_CHAR_UNKNOWN || (D2 != LCD_CHAR_SPACE && D1 == LCD_CHAR_SPACE)) return INFINITY;
 		// получаем разряд тысяч
-		uint32_t D3 = (value >> 21 & 1);
-		// проверяем
+		uint8_t D3 = (value >> 21 & 1);
+		// в случае если есть тысячи, а предыдущая цифра отсутствует, возвращаем ошибку
 		if (D3 && D2 == LCD_CHAR_SPACE) return INFINITY;
 		// вычисляем результат
-		float result = (D3 * 1000) + D0;
+		float result = D3 * 1000 + D0;
 		if (D2 != LCD_CHAR_SPACE) result += D2 * 100;
 		if (D1 != LCD_CHAR_SPACE) result += D1 * 10;
 		if (isFloat) result /= 10;
@@ -243,6 +243,7 @@ namespace BC_private {
 		if (value >> 23 & 1) result = -result;
 		return result;
 	}
+
 
 	// вызывается после того как мы приняли последний байт от мастера
 	// конвертирует LCD - значения в float (конвертирует в общепринятые еденицы
