@@ -394,7 +394,7 @@ namespace BC {
 	void init(uint8_t PIN_MODE, uint8_t PIN_RESET, uint32_t UPDATE_INTERVAL) {
 		using namespace BC_private;
 		// настройка SPI в режиме slave
-		SPCR |= bit(SPE);
+		SPCR |= (1 << SPE);
 		SPI.setBitOrder(LSBFIRST);
 		SPI.setDataMode(SPI_MODE3);
 		// инициализация переменных и настройка пинов

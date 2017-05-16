@@ -176,6 +176,9 @@ uint8_t PIDS[] = {
 
 };
 
+//@TODO: increase serial TX buffer size
+//@TODO: check what can be done with availableForWrite
+
 
 void setup() {
 	wdt_enable(WDT_INTERVAL);
