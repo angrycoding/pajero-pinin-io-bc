@@ -216,15 +216,25 @@ namespace BC_private {
 	// конвертирует 32х - битное число описывающее состояние
 	// виртуального LCD - дисплея в отображаемое значение
 	float LCD_getValue(uint32_t value) {
+		// получаем разряд единиц
 		uint32_t D0 = LCD_getDigit(value & 0x7F);
-		if (D0 >= LCD_CHAR_UNKNOWN || D0 == LCD_CHAR_SPACE) return INFINITY;
+		// в случае если он пустой или неопознан, возвращаем ошибку
+		if (D0 >= LCD_CHAR_SPACE) return INFINITY;
+		// получаем разряд десятков
 		uint32_t D1 = LCD_getDigit(value >> 7 & 0x7F);
+		// получаем признак дробного
 		bool isFloat = (value >> 22 & 1);
+		// проверяем
 		if (D1 == LCD_CHAR_UNKNOWN || (D1 == LCD_CHAR_SPACE ? isFloat : D0 == LCD_CHAR_SPACE)) return INFINITY;
+		// получаем разряд сотен
 		uint32_t D2 = LCD_getDigit(value >> 14 & 0x7F);
+		// проверяем
 		if (D2 == LCD_CHAR_UNKNOWN || (D2 != LCD_CHAR_SPACE && D1 == LCD_CHAR_SPACE)) return INFINITY;
+		// получаем разряд тысяч
 		uint32_t D3 = (value >> 21 & 1);
+		// проверяем
 		if (D3 && D2 == LCD_CHAR_SPACE) return INFINITY;
+		// вычисляем результат
 		float result = (D3 * 1000);
 		if (D2 != LCD_CHAR_SPACE) result += D2 * 100;
 		if (D1 != LCD_CHAR_SPACE) result += D1 * 10;
