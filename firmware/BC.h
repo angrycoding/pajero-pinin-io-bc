@@ -432,41 +432,33 @@ namespace BC {
 
 			// нажимаем кнопку сброса
 			case BC_STATE_RESET_PRESS:
-				noInterrupts();
 				PORTD |= (1 << PIN_RESET);
 				actionTime = millis();
-				interrupts();
 				state = BC_STATE_RESET_RELEASE;
 				break;
 
 			// отпускаем кнопку сброса
 			case BC_STATE_RESET_RELEASE:
-				noInterrupts();
 				if (millis() - actionTime >= RESET_ACTION_DELAY_MS) {
 					PORTD &= ~(1 << PIN_RESET);
 					state = BC_STATE_MODE_PRESS;
 				}
-				interrupts();
 				break;
 
 			// нажимаем кнопку переключения режима
 			case BC_STATE_MODE_PRESS:
-				noInterrupts();
 				PORTD |= (1 << PIN_MODE);
 				actionTime = millis();
-				interrupts();
 				state = BC_STATE_MODE_RELEASE;
 				break;
 
 			// отпускаем кнопку переключения режима
 			case BC_STATE_MODE_RELEASE:
-				noInterrupts();
 				if (millis() - actionTime >= MODE_ACTION_DELAY_MS) {
 					PORTD &= ~(1 << PIN_MODE);
 					actionTime = millis();
 					state = BC_STATE_UPDATE_DELAY;
 				}
-				interrupts();
 				break;
 
 			// ждем до следующего цикла обновления
