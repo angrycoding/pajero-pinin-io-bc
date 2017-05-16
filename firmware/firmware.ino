@@ -16,7 +16,7 @@
 // интервал watch-dog таймера
 #define WDT_INTERVAL WDTO_4S
 // скорость последовательного порта
-#define SERIAL_SPEED 115200
+#define SERIAL_SPEED 230400
 // минимальный интервал между обновлениями БК
 #define BC_UPDATE_INTERVAL_MS 2000
 
