@@ -2,7 +2,7 @@
 #define RPC_h
 
 #define RPC_KEY 0
-#define RPC_VTYPE 1
+#define RPC_TYPE 1
 #define RPC_CRC 2
 
 #define RPC_NULL 'N'
@@ -38,12 +38,12 @@ namespace RPC {
 			// читаем ключ
 			case RPC_KEY: {
 				rxBuffer[buffSize = 0] = Serial.read();
-				state = RPC_VTYPE;
+				state = RPC_TYPE;
 				break;
 			}
 
 			// читаем тип значения
-			case RPC_VTYPE: {
+			case RPC_TYPE: {
 				switch (rxBuffer[++buffSize] = Serial.read()) {
 					case RPC_NULL: state = RPC_CRC; break;
 					case RPC_UINT8: state = RPC_UINT8; break;
@@ -82,35 +82,35 @@ namespace RPC {
 
 	void writeNull(uint8_t key) {
 		using namespace RPC_private;
-		txBuffer[0] = RPC_NULL;
-		txBuffer[1] = key;
+		txBuffer[0] = key;
+		txBuffer[1] = RPC_NULL;
 		txBuffer[2] = iso_checksum(txBuffer, 2);
 		Serial.write(txBuffer, 3);
 	}
 
 	void writeUInt8(uint8_t key, uint8_t value) {
 		using namespace RPC_private;
-		txBuffer[0] = RPC_UINT8;
-		txBuffer[1] = value;
-		txBuffer[2] = key;
+		txBuffer[0] = key;
+		txBuffer[1] = RPC_UINT8;
+		txBuffer[2] = value;
 		txBuffer[3] = iso_checksum(txBuffer, 3);
 		Serial.write(txBuffer, 4);
 	}
 
 	void writeUInt32(uint8_t key, uint32_t value) {
 		using namespace RPC_private;
-		txBuffer[0] = RPC_UINT32;
-		*reinterpret_cast<uint32_t*>(&txBuffer[1]) = value;
-		txBuffer[5] = key;
+		txBuffer[0] = key;
+		txBuffer[1] = RPC_UINT32;
+		*reinterpret_cast<uint32_t*>(&txBuffer[2]) = value;
 		txBuffer[6] = iso_checksum(txBuffer, 6);
 		Serial.write(txBuffer, 7);
 	}
 
 	void writeFloat(uint8_t key, float value) {
 		using namespace RPC_private;
-		txBuffer[0] = RPC_FLOAT;
-		*reinterpret_cast<float*>(&txBuffer[1]) = value;
-		txBuffer[5] = key;
+		txBuffer[0] = key;
+		txBuffer[1] = RPC_FLOAT;
+		*reinterpret_cast<float*>(&txBuffer[2]) = value;
 		txBuffer[6] = iso_checksum(txBuffer, 6);
 		Serial.write(txBuffer, 7);
 	}

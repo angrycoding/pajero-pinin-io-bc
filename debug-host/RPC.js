@@ -4,9 +4,9 @@ var EventEmitter = require('events').EventEmitter;
 
 const WAIT_INTERVAL = 250;
 
-const RPC_START = 0;
-const RPC_KEY = 1;
-const RPC_CHECK = 2;
+const RPC_KEY = 0;
+const RPC_TYPE = 1;
+const RPC_CRC = 2;
 
 const RPC_NULL = 'N'.charCodeAt(0);
 const RPC_UINT8 = 'B'.charCodeAt(0);
@@ -24,35 +24,33 @@ function waitConnection(serialPort) {
 }
 
 function RPC(comName, baudRate) {
-	if (this instanceof RPC) {
 
-		this.buffer = [];
-		this.responseKey = null;
-		this.responseValue = null;
-		this.state = RPC_START;
-		this.testBuff = [];
+	if (!(this instanceof RPC))
+		return new RPC(comName, baudRate);
 
-		var serialPort = this.sp = new SerialPort(comName, {
-			baudRate: baudRate,
-			autoOpen: false
-		});
+	this.buffer = [];
+	this.state = RPC_KEY;
+	this.rxBuffer = [];
 
-		serialPort.on('error', function() {
-			// console.info('ERR', arguments)
-		});
+	var serialPort = new SerialPort(comName, {
+		baudRate: baudRate,
+		autoOpen: false
+	});
 
-		serialPort.on('open', function() {
-			// console.info('PORT_OPEN', arguments)
-		});
-		serialPort.on('data', (data) => this.processIncoming(data));
-		serialPort.on('close', function() {
-			// console.info('PORT_CLOSE', arguments)
-		});
+	serialPort.on('error', function() {
+		// console.info('ERR', arguments)
+	});
 
-		waitConnection(this.serialPort = serialPort);
+	serialPort.on('open', function() {
+		// console.info('PORT_OPEN', arguments)
+	});
+	serialPort.on('data', (data) => this.processIncoming(data));
+	serialPort.on('close', function() {
+		// console.info('PORT_CLOSE', arguments)
+	});
 
+	waitConnection(this.serialPort = serialPort);
 
-	} else return new RPC(comName, baudRate);
 }
 
 RPC.prototype = Object.create(EventEmitter.prototype);
@@ -70,84 +68,75 @@ function iso_checksum(data) {
 }
 
 RPC.prototype.exit = function(ret) {
-	this.sp.close(ret);
+	this.serialPort.close(ret);
 };
 
 RPC.prototype.writeNull = function(key) {
 	var buffer = [key, RPC_NULL];
 	buffer.push(iso_checksum(buffer));
-	this.sp.write(buffer);
+	this.serialPort.write(buffer);
 };
 
 RPC.prototype.processIncoming = function(data) {
 
-	var available, buffer = this.buffer;
+	var available,
+		buffer = this.buffer,
+		rxBuffer = this.rxBuffer;
 
 	Array.prototype.push.apply(buffer, data);
 
 	loop: while (available = buffer.length) switch (this.state) {
 
-		case RPC_START:
-			this.testBuff = [buffer[0]];
-			switch (buffer.shift()) {
-				
-				case RPC_NULL:
-					this.responseValue = null;
-					this.state = RPC_KEY;
-					break;
-
-				case RPC_UINT8: this.state = RPC_UINT8; break;
-				case RPC_UINT32: this.state = RPC_UINT32; break;
-				case RPC_FLOAT: this.state = RPC_FLOAT; break;
-			}
-			break;
-
-		
-
-		case RPC_UINT8:
-			Array.prototype.push.apply(this.testBuff, buffer.slice(0, 1));
-			this.responseValue = new Buffer(buffer.splice(0, 1)).readUInt8(0);
-			this.state = RPC_KEY;
-			break;
-
-		case RPC_UINT32:
-			if (available < 4) break loop;
-			Array.prototype.push.apply(this.testBuff, buffer.slice(0, 4));
-			this.responseValue = new Buffer(buffer.splice(0, 4)).readUInt32LE(0);
-			this.state = RPC_KEY;
-			break;
-
-		case RPC_FLOAT: {
-			if (available < 4) break loop;
-			Array.prototype.push.apply(this.testBuff, buffer.slice(0, 4));
-			this.responseValue = new Buffer(buffer.splice(0, 4)).readFloatLE(0);
-			this.state = RPC_KEY;
+		// читаем ключ
+		case RPC_KEY: {
+			rxBuffer.splice(0, Infinity, buffer.shift());
+			this.state = RPC_TYPE;
 			break;
 		}
 
-		case RPC_KEY:
-			this.responseKey = buffer.shift();
-			this.testBuff.push(this.responseKey);
-			this.state = RPC_CHECK;
-			break;
-
-		case RPC_CHECK:
-			var a = buffer.shift();
-			var b  = iso_checksum(this.testBuff);
-		// console.info(this.testBuff, a, b)
-
-			if (a === b) {
-				// console.info('good', this.responseKey, this.responseValue)
-				this.emit('pid', this.responseKey, this.responseValue);
-			} else {
-				// console.info(a, b)
+		// читаем тип значения
+		case RPC_TYPE: {
+			switch (rxBuffer.push(buffer[0]), buffer.shift()) {
+				case RPC_NULL: this.state = RPC_CRC; break;
+				case RPC_UINT8: this.state = RPC_UINT8; break;
+				case RPC_FLOAT: this.state = RPC_FLOAT; break;
+				case RPC_UINT32: this.state = RPC_UINT32; break;
+				default: this.state = RPC_KEY; break;
 			}
-			this.state = RPC_START;
+			break;
+		}
 
+		case RPC_UINT8: {
+			rxBuffer.push(buffer.shift());
+			this.state = RPC_CRC;
+			break;
+		}
+
+		case RPC_FLOAT:
+		case RPC_UINT32: {
+			if (available < 4) break loop;
+			rxBuffer.push(buffer.shift());
+			rxBuffer.push(buffer.shift());
+			rxBuffer.push(buffer.shift());
+			rxBuffer.push(buffer.shift());
+			this.state = RPC_CRC;
+			break;
+		}
+
+
+		// проверяем контрольную сумму
+		case RPC_CRC: {
+			this.state = RPC_KEY;
+			if (buffer.shift() == iso_checksum(rxBuffer)) switch (rxBuffer[1]) {
+				case RPC_NULL: this.emit('pid', rxBuffer[0], null); break;
+				case RPC_UINT8: this.emit('pid', rxBuffer[0], new Buffer([rxBuffer[2]]).readUInt8(0)); break;
+				case RPC_FLOAT: this.emit('pid', rxBuffer[0], new Buffer([rxBuffer[2], rxBuffer[3], rxBuffer[4], rxBuffer[5]]).readFloatLE(0)); break;
+				case RPC_UINT32: this.emit('pid', rxBuffer[0], new Buffer([rxBuffer[2], rxBuffer[3], rxBuffer[4], rxBuffer[5]]).readUInt32LE(0)); break;
+			}
+			break;
+		}
 
 	}
-
-
 };
 
 
