@@ -149,9 +149,9 @@
 // цифра 9
 #define LCD_CHAR_9 95
 // пустое знакоместо
-#define LCD_CHAR_SPACE 10000
+#define LCD_CHAR_SPACE 10
 // неизвестный символ
-#define LCD_CHAR_UNKNOWN 10001
+#define LCD_CHAR_UNKNOWN 11
 
 // константы результата выполнения BC::update
 #define BC_UPDATE_NOTHING 0
@@ -235,10 +235,9 @@ namespace BC_private {
 		// проверяем
 		if (D3 && D2 == LCD_CHAR_SPACE) return INFINITY;
 		// вычисляем результат
-		float result = (D3 * 1000);
+		float result = (D3 * 1000) + D0;
 		if (D2 != LCD_CHAR_SPACE) result += D2 * 100;
 		if (D1 != LCD_CHAR_SPACE) result += D1 * 10;
-		if (D0 != LCD_CHAR_SPACE) result += D0;
 		if (isFloat) result /= 10;
 		// признак отрицательного значения
 		if (value >> 23 & 1) result = -result;
