@@ -14,8 +14,6 @@
 #define KL_INIT_DELAY 2
 // задержка между посылками отдельных битов на скорости 5 бит/с
 #define KL_INTERBIT_DELAY 205
-// задержка между ответом и следующим запросом
-#define KL_REQUEST_INTERVAL 20
 
 // константы результата выполнения KL::write
 #define KL_WRITE_FAIL 0
@@ -44,6 +42,7 @@
 namespace KL_private {
 
 	uint8_t PIN_TX;
+	uint32_t REQUEST_INTERVAL;
 	uint8_t pidResponse[3];
 	SoftwareSerial *klSerial;
 	uint32_t waitingTime = 0;
@@ -102,11 +101,12 @@ namespace KL {
 	const uint8_t WRITE_FAIL = KL_WRITE_FAIL;
 	const uint8_t WRITE_SUCCESS = KL_WRITE_SUCCESS;
 
-	void init(uint8_t PIN_RX, uint8_t PIN_TX) {
+	void init(uint8_t PIN_RX, uint8_t PIN_TX, uint32_t requestInterval) {
 		using namespace KL_private;
 		pinMode(PIN_RX, INPUT);
 		pinMode(KL_private::PIN_TX = PIN_TX, OUTPUT);
 		klSerial = new SoftwareSerial(PIN_RX, PIN_TX);
+		KL_private::REQUEST_INTERVAL = requestInterval;
 		klSerial->begin(KL_SERIAL_SPEED);
 	}
 
@@ -183,15 +183,18 @@ namespace KL {
 			// ожидаем ответа ЭБУ и обрабатываем его
 			case KL_STATE_RESPONSE: {
 				if (waitingForBytes(2)) break;
-				// включаем счетчик ожидания минимального интервала между запросами
-				waiting(KL_REQUEST_INTERVAL);
-				state = KL_STATE_NEXT_REQUEST;
+				// проверяем, нужен ли интервал между запросами
+				if (REQUEST_INTERVAL) {
+					// включаем счетчик ожидания минимального интервала между запросами
+					waiting(REQUEST_INTERVAL);
+					state = KL_STATE_NEXT_REQUEST;
+				} else state = KL_STATE_REQUEST;
 				return KL_WRITE_SUCCESS;
 			}
 
 			// ожидаем истечения таймаута между запросами
 			case KL_STATE_NEXT_REQUEST: {
-				if (!waiting(KL_REQUEST_INTERVAL))
+				if (!waiting(REQUEST_INTERVAL))
 					state = KL_STATE_REQUEST;
 				break;
 			}

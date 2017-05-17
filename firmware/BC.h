@@ -153,13 +153,6 @@
 // неизвестный символ
 #define LCD_CHAR_UNKNOWN 11
 
-// константы результата выполнения BC::update
-#define BC_UPDATE_NOTHING 0
-#define BC_UPDATE_FUEL 1
-#define BC_UPDATE_SPEED 2
-#define BC_UPDATE_CONSUMPTION 3
-#define BC_UPDATE_TEMPERATURE 4
-
 // ввиду того, что обработчик прерывания не может иметь доступа к приватным
 // членам класса, это единственная возможность разграничить права доступа
 namespace BC_private {
@@ -186,8 +179,6 @@ namespace BC_private {
 	bool doResetSpeed = false;
 	// сбросить расход топлива при следующем переключении режима
 	bool doResetConsumption = false;
-	// статус принудительного обновления всех показателей
-	uint8_t forceUpdateState = BC_UPDATE_NOTHING;
 
 	volatile uint8_t state;
 	volatile uint32_t lcdMeterage;
@@ -247,35 +238,28 @@ namespace BC_private {
 
 	// вызывается после того как мы приняли последний байт от мастера
 	// конвертирует LCD - значения в float (конвертирует в общепринятые еденицы
-	// измерения, при необходимости), сравнивает с предыдущими и в случае если
-	// новое значение не соответствует тому, что было принято в прошлый раз,
-	// выдает статус который указывает на то, что конкретно поменялось с прошлого раза
-	// кроме того, контроллирует флаги принудительного сброса показаний
+	// измерения, при необходимости), контроллирует флаги принудительного сброса показаний
 	// средней скорости и расхода, обновляя стэйт соответствующим образом
-	uint8_t doUpdate() {
+	void doUpdate() {
 
 		float value;
-		uint8_t result = BC_UPDATE_NOTHING;
+		// uint8_t result = BC_UPDATE_NOTHING;
 
 		switch (lcdMeterageUnit) {
 			
 			// читаем показатель остатка топлива
 			case METERAGE_FUEL_KM:
 			case METERAGE_FUEL_MILES: {
-
+				
 				// преобразуем LCD - значение в число
 				value = LCD_getValue(lcdMeterage);
-
+				
 				// конвертируем в км, в случае если установлены мили и мы прочитали что - то осмысленное
-				if (lcdMeterageUnit == METERAGE_FUEL_MILES && value != INFINITY && value != 0) {
+				if (lcdMeterageUnit == METERAGE_FUEL_MILES && value != INFINITY && value != 0)
 					value = ceil(value * MILE_TO_KM);
-				}
-
-				// проверяем изменилось - ли значение
-				if (fuel != value) {
-					fuel = value;
-					result = BC_UPDATE_FUEL;
-				}
+				
+				// обновляем значение
+				fuel = value;
 
 				break;
 			}
@@ -295,15 +279,11 @@ namespace BC_private {
 				else value = LCD_getValue(lcdMeterage);
 
 				// конвертируем в км/ч, в случае если установлены мили и мы прочитали что - то осмысленное
-				if (lcdMeterageUnit == METERAGE_SPEED_MPH && value != INFINITY && value != 0) {
+				if (lcdMeterageUnit == METERAGE_SPEED_MPH && value != INFINITY && value != 0)
 					value = ceil(value * MILE_TO_KM);
-				}
 
-				// проверяем изменилось - ли значение
-				if (speed != value) {
-					speed = value;
-					result = BC_UPDATE_SPEED;
-				}
+				// обновляем значение
+				speed = value;
 
 				break;
 			}
@@ -329,32 +309,18 @@ namespace BC_private {
 					else if (lcdMeterageUnit == METERAGE_CONSUMPTION_KML) value = round(10 * (100 / value)) / 10;
 				}
 
-				// проверяем изменилось - ли значение
-				if (consumption != value) {
-					consumption = value;
-					result = BC_UPDATE_CONSUMPTION;
-				}
+				// обновляем значение
+				consumption = value;
 
 				break;
 			}
 		}
 
-		// если ни один показатель не изменился, то читаем температуру
-		// поскольку она самая низкоприоритетная вещь в данном случае
-		if (result == BC_UPDATE_NOTHING) {
-			// преобразуем LCD - значение в число
-			value = LCD_getValue(lcdTemperature);
-			// проверяем изменилось - ли значение
-			if (temperature != value) {
-				temperature = value;
-				result = BC_UPDATE_TEMPERATURE;
-			}
-		}
+		// температура, преобразуем LCD - значение в число и обновляем
+		temperature = LCD_getValue(lcdTemperature);
 
 		// в случае если не нужно сбрасывать показатель, переключаем режим
 		if (state == BC_STATE_DONE) state = BC_STATE_MODE_PRESS;
-
-		return result;
 	}
 
 	// обработчик SPI - прерывания
@@ -384,11 +350,6 @@ namespace BC_private {
 
 namespace BC {
 
-	const uint8_t UPDATE_FUEL = BC_UPDATE_FUEL;
-	const uint8_t UPDATE_SPEED = BC_UPDATE_SPEED;
-	const uint8_t UPDATE_CONSUMPTION = BC_UPDATE_CONSUMPTION;
-	const uint8_t UPDATE_TEMPERATURE = BC_UPDATE_TEMPERATURE;
-
 	// процедура инициализации, вызывается в setup(), принимает номера пинов
 	// на которые повешаны кнопки сброса и режима, а также интервал обновления показаний
 	void init(uint8_t PIN_MODE, uint8_t PIN_RESET, uint32_t UPDATE_INTERVAL) {
@@ -410,7 +371,7 @@ namespace BC {
 
 	// процедура обновления, вызывается в loop(), возвращает true, в случае,
 	// если доступны новые данные
-	uint8_t update() {
+	void update() {
 
 		using namespace BC_private;
 
@@ -418,7 +379,6 @@ namespace BC {
 
 			// начинаем получать данные от мастера
 			case BC_STATE_IDLE:
-				if (forceUpdateState) return forceUpdateState--;
 				lcdMeterage = 0;
 				lcdTemperature = 0;
 				lcdMeterageUnit = 0;
@@ -428,35 +388,36 @@ namespace BC {
 
 			// приняли данные от мастера, обновляем показатели
 			case BC_STATE_DONE:
-				return doUpdate();
+				doUpdate();
+				break;
 
 			// нажимаем кнопку сброса
 			case BC_STATE_RESET_PRESS:
-				PORTD |= (1 << PIN_RESET);
 				actionTime = millis();
+				digitalWrite(PIN_RESET, HIGH);
 				state = BC_STATE_RESET_RELEASE;
 				break;
 
 			// отпускаем кнопку сброса
 			case BC_STATE_RESET_RELEASE:
 				if (millis() - actionTime >= RESET_ACTION_DELAY_MS) {
-					PORTD &= ~(1 << PIN_RESET);
+					digitalWrite(PIN_RESET, LOW);
 					state = BC_STATE_MODE_PRESS;
 				}
 				break;
 
 			// нажимаем кнопку переключения режима
 			case BC_STATE_MODE_PRESS:
-				PORTD |= (1 << PIN_MODE);
 				actionTime = millis();
+				digitalWrite(PIN_MODE, HIGH);
 				state = BC_STATE_MODE_RELEASE;
 				break;
 
 			// отпускаем кнопку переключения режима
 			case BC_STATE_MODE_RELEASE:
 				if (millis() - actionTime >= MODE_ACTION_DELAY_MS) {
-					PORTD &= ~(1 << PIN_MODE);
 					actionTime = millis();
+					digitalWrite(PIN_MODE, LOW);
 					state = BC_STATE_UPDATE_DELAY;
 				}
 				break;
@@ -467,17 +428,6 @@ namespace BC {
 					state = BC_STATE_IDLE;
 				break;
 
-		}
-
-		return BC_UPDATE_NOTHING;
-	}
-
-	// принудительно обновляет все показатели
-	// вне зависимости от того изменились они или нет
-	void forceUpdate() {
-		using namespace BC_private;
-		if (forceUpdateState == BC_UPDATE_NOTHING) {
-			forceUpdateState = BC_UPDATE_TEMPERATURE;
 		}
 	}
 
