@@ -1,0 +1,62 @@
+int result = connection.controlTransfer(
+	// request type
+	0x40,
+	// set latency request
+	0x09, 
+	// latency (ms)
+	1,
+	// index MUST BE 1?
+	0,
+	// buffer
+	null,
+	// offset
+	0,
+	// timeout
+	5000
+);
+
+if (result != 0) {
+	throw new IOException("Set latency timer failed: result=" + result);
+}
+
+
+
+
+
+
+int result = connection.controlTransfer(
+	// request type
+	0x40,
+	// set event character request
+	0x06, 
+	// event char
+	/*
+                          Bits 0-7:   Event character
+			  Bit 8:      Event character enabled=1, disabled=0
+	*/
+	// Z
+	218,
+
+	// index MUST BE 1?
+	0,
+	// buffer
+	null,
+	// offset
+	0,
+	// timeout
+	5000
+);
+
+if (result != 0) {
+	throw new IOException("Set event character failed: result=" + result);
+}
+
+
+
+
+
+sb_control_msg(ftdi->usb_dev, 0x40, 0x06,   Value, Interface,           NULL, 0, Timeout)
+                        Value encodes the event character and whether it is to be used:
+                          Bits 0-7:   Event character
+			  Bit 8:      Event character enabled=1, disabled=0
+                        Interface is 0 for Channel A, 1 for Channel B
