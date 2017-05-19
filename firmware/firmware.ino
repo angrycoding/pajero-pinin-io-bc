@@ -8,7 +8,7 @@
 // пин контроллирующий кнопку сброса
 #define PIN_BC_RESET 6
 // минимальный интервал между обновлениями БК
-#define BC_UPDATE_INTERVAL_MS 2000
+#define BC_UPDATE_INTERVAL_MS 0
 
 // пин контроллирующий прием данных из K-line
 #define PIN_KL_RX 5
@@ -37,9 +37,6 @@
 
 uint8_t readingPid = 0x00;
 uint8_t KL_PID_VALUES[CMD_KL_LAST + 1] = {0};
-
-
-
 
 void setup() {
 	wdt_enable(WDT_INTERVAL);

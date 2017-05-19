@@ -416,9 +416,11 @@ namespace BC {
 			// отпускаем кнопку переключения режима
 			case BC_STATE_MODE_RELEASE:
 				if (millis() - actionTime >= MODE_ACTION_DELAY_MS) {
-					actionTime = millis();
 					digitalWrite(PIN_MODE, LOW);
-					state = BC_STATE_UPDATE_DELAY;
+					if (UPDATE_INTERVAL) {
+						actionTime = millis();
+						state = BC_STATE_UPDATE_DELAY;
+					} else state = BC_STATE_IDLE;
 				}
 				break;
 
