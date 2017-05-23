@@ -1,6 +1,6 @@
 var RPC = require('./RPC');
-var rpc = new RPC('/dev/tty.usbserial-A921PBNR', 230400);
-var PID_REQUEST_INTERVAL = 10;
+var rpc = new RPC('/dev/tty.usbserial-A921PBNR', 115200);
+var PID_REQUEST_INTERVAL = 1;
 
 // clear screen, hide cursor
 process.stdout.write('\033c\033[?25l');
@@ -15,6 +15,7 @@ process.on('SIGINT', exitHandler);
 process.on('uncaughtException', exitHandler);
 
 var PIDS = {
+
 
 	0x00: {
 		display: [{
@@ -137,8 +138,20 @@ var PIDS = {
 		display: {
 			label: 'БК расход топлива'
 		}
-	}
+	},
 
+
+	0x86: {
+		display: {
+			label: 'Миллисекунд с запуска'
+		}
+	},
+
+	0x87: {
+		display: {
+			label: 'Ошибок К - линии'
+		}
+	}
 
 };
 
@@ -176,6 +189,7 @@ rpc.on('pid', function(key, value) {
 });
 
 
+return;
 setInterval(function() {
 	rpc.emit('pid', PID_KEYS[0], Math.round(Math.random() * 1000));
 }, PID_REQUEST_INTERVAL)
