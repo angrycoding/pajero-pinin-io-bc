@@ -11,16 +11,16 @@
 #define BC_UPDATE_INTERVAL_MS 0
 
 // пин контроллирующий прием данных из K-line
-#define PIN_KL_RX 5
+#define PIN_KL_RX 8
 // пин контроллирующий отправку данных в K-line
-#define PIN_KL_TX 4
+#define PIN_KL_TX 9
 // минимальный интервал между опросами K-line
 #define KL_REQUEST_INTERVAL 0
 
 // интервал watch-dog таймера
 #define WDT_INTERVAL WDTO_4S
 // скорость последовательного порта
-#define SERIAL_SPEED 230400
+#define SERIAL_SPEED 115200
 
 // запросы для получения данных фронтэндом
 #define CMD_KL_LAST 0x7F
@@ -30,12 +30,14 @@
 #define CMD_BC_GET_SPEED 0x83
 #define CMD_BC_GET_TEMPERATURE 0x84
 #define CMD_BC_GET_CONSUMPTION 0x85
-
+#define CMD_BC_GET_MILLIS 0x86
+#define CMD_BC_GET_ERRORS 0x87
 
 
 
 
 uint8_t readingPid = 0x00;
+uint32_t errorCount = 0;
 uint8_t KL_PID_VALUES[CMD_KL_LAST + 1] = {0};
 
 void setup() {
@@ -57,12 +59,15 @@ void serialEvent() {
 		case CMD_BC_GET_SPEED: RPC::writeFloat(CMD_BC_GET_SPEED, BC::getSpeed()); break;
 		case CMD_BC_GET_TEMPERATURE: RPC::writeFloat(CMD_BC_GET_TEMPERATURE, BC::getTemperature()); break;
 		case CMD_BC_GET_CONSUMPTION: RPC::writeFloat(CMD_BC_GET_CONSUMPTION, BC::getConsumption()); break;
+		case CMD_BC_GET_MILLIS: RPC::writeUInt32(CMD_BC_GET_MILLIS, millis()); break;
+		case CMD_BC_GET_ERRORS: RPC::writeUInt32(CMD_BC_GET_ERRORS, errorCount); break;
 	} else RPC::writeUInt8(key, KL_PID_VALUES[key]);
 }
 
 void loop() {
 	wdt_reset();
 	BC::update();
+
 	switch (KL::write(readingPid)) {
 
 		case KL::WRITE_SUCCESS:
@@ -72,8 +77,10 @@ void loop() {
 
 		case KL::WRITE_FAIL:
 			readingPid = 0x00;
+			errorCount++;
 			memset(KL_PID_VALUES, 0, CMD_KL_LAST + 1);
 			break;
 
 	}
+
 }
