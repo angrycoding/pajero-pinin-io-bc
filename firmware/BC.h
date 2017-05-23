@@ -243,7 +243,6 @@ namespace BC_private {
 	void doUpdate() {
 
 		float value;
-		// uint8_t result = BC_UPDATE_NOTHING;
 
 		switch (lcdMeterageUnit) {
 			
