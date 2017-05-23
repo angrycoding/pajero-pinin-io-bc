@@ -1,7 +1,7 @@
 #ifndef KL_h
 #define KL_h
 
-#include <SoftwareSerial.h>
+#include "AltSoftSerial.h"
 
 // адрес ECU
 #define KL_ECU_ADDRESS 0x00
@@ -44,7 +44,7 @@ namespace KL_private {
 	uint8_t PIN_TX;
 	uint32_t REQUEST_INTERVAL;
 	uint8_t pidResponse[3];
-	SoftwareSerial *klSerial;
+	AltSoftSerial *klSerial;
 	uint32_t waitingTime = 0;
 	int8_t state = KL_STATE_WAKEUP;
 
@@ -105,7 +105,7 @@ namespace KL {
 		using namespace KL_private;
 		pinMode(PIN_RX, INPUT);
 		pinMode(KL_private::PIN_TX = PIN_TX, OUTPUT);
-		klSerial = new SoftwareSerial(PIN_RX, PIN_TX);
+		klSerial = new AltSoftSerial();
 		KL_private::REQUEST_INTERVAL = requestInterval;
 		klSerial->begin(KL_SERIAL_SPEED);
 	}
