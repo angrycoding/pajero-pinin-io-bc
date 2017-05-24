@@ -3,6 +3,8 @@
 
 #include "AltSoftSerial.h"
 
+// пин контроллирующий отправку данных в K-line
+#define KL_PIN_TX 9
 // адрес ECU
 #define KL_ECU_ADDRESS 0x00
 // скорость обмена
@@ -41,7 +43,6 @@
 
 namespace KL_private {
 
-	uint8_t PIN_TX;
 	uint32_t REQUEST_INTERVAL;
 	uint8_t pidResponse[3];
 	AltSoftSerial *klSerial;
@@ -71,7 +72,7 @@ namespace KL_private {
 	bool sendingBit(bool value, uint32_t duration) {
 		switch (waiting(duration)) {
 			// первый раз
-			case 1: digitalWrite(PIN_TX, value);
+			case 1: digitalWrite(KL_PIN_TX, value);
 			// время не истекло
 			case 2: return true;
 			// время истекло
@@ -101,12 +102,11 @@ namespace KL {
 	const uint8_t WRITE_FAIL = KL_WRITE_FAIL;
 	const uint8_t WRITE_SUCCESS = KL_WRITE_SUCCESS;
 
-	void init(uint8_t PIN_RX, uint8_t PIN_TX, uint32_t requestInterval) {
+	void init(uint32_t requestInterval) {
 		using namespace KL_private;
-		pinMode(PIN_RX, INPUT);
-		pinMode(KL_private::PIN_TX = PIN_TX, OUTPUT);
-		klSerial = new AltSoftSerial();
+		pinMode(KL_PIN_TX, OUTPUT);
 		KL_private::REQUEST_INTERVAL = requestInterval;
+		klSerial = new AltSoftSerial();
 		klSerial->begin(KL_SERIAL_SPEED);
 	}
 

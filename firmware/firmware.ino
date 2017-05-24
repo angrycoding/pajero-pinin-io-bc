@@ -9,11 +9,6 @@
 #define PIN_BC_RESET 6
 // минимальный интервал между обновлениями БК
 #define BC_UPDATE_INTERVAL_MS 0
-
-// пин контроллирующий прием данных из K-line
-#define PIN_KL_RX 8
-// пин контроллирующий отправку данных в K-line
-#define PIN_KL_TX 9
 // минимальный интервал между опросами K-line
 #define KL_REQUEST_INTERVAL 0
 
@@ -43,7 +38,7 @@ uint8_t KL_PID_VALUES[CMD_KL_LAST + 1] = {0};
 void setup() {
 	wdt_enable(WDT_INTERVAL);
 	Serial.begin(SERIAL_SPEED);
-	KL::init(PIN_KL_RX, PIN_KL_TX, KL_REQUEST_INTERVAL);
+	KL::init(KL_REQUEST_INTERVAL);
 	BC::init(PIN_BC_MODE, PIN_BC_RESET, BC_UPDATE_INTERVAL_MS);
 	// otherwise there is a risk to send something several times in millis() - time
 	delay(1);
