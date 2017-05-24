@@ -181,9 +181,14 @@ namespace BC_private {
 	bool doResetConsumption = false;
 
 	volatile uint8_t state;
-	volatile uint32_t lcdMeterage;
-	volatile uint32_t lcdTemperature;
+	volatile uint8_t b04;
+	volatile uint8_t b05;
+	volatile uint8_t b18;
+	volatile uint8_t b19;
+	volatile uint8_t b20;
+	volatile uint8_t b23;
 	volatile uint8_t lcdMeterageUnit;
+	volatile uint8_t b28;
 
 	// конвертирует 7 - битную маску сегмента полученную из 32х - битного числа
 	// описывающего состояние виртуального LCD - дисплея в отображаемую цифру
@@ -215,7 +220,7 @@ namespace BC_private {
 		uint8_t D1 = LCD_getDigit(value >> 7 & 0x7F);
 		// получаем признак дробного
 		bool isFloat = (value >> 22 & 1);
-		// в случае если цифра неопознана, либо отсутствует но есть точка, возвращаем ошибку 
+		// в случае если цифра неопознана, либо отсутствует но есть точка, возвращаем ошибку
 		if (D1 == LCD_CHAR_UNKNOWN || (D1 == LCD_CHAR_SPACE && isFloat)) return INFINITY;
 		// получаем разряд сотен
 		uint8_t D2 = LCD_getDigit(value >> 14 & 0x7F);
@@ -242,23 +247,27 @@ namespace BC_private {
 	// средней скорости и расхода, обновляя стэйт соответствующим образом
 	void doUpdate() {
 
-		float value;
+		// один из показателей, преобразуем LCD - значение в число
+		float meterage = LCD_getValue(
+			LCD_100T(b18, 4) | LCD_100TL(b18, 5) | LCD_100BL(b18, 6) | LCD_1000(b18, 7) |
+			LCD_100TR(b19, 0) | LCD_100C(b19, 1) | LCD_100BR(b19, 2) | LCD_100B(b19, 3) | LCD_10T(b19, 4) | LCD_10TL(b19, 5) | LCD_10BL(b19, 6) |
+			LCD_10TR(b20, 0) | LCD_10C(b20, 1) | LCD_10BR(b20, 2) | LCD_10B(b20, 3) |
+			LCD_1T(b23, 0) | LCD_1TL(b23, 1) | LCD_1BL(b23, 2) | LCD_1TR(b23, 4) | LCD_1C(b23, 5) | LCD_1BR(b23, 6) | LCD_1B(b23, 7) |
+			LCD_DOT(b28, 7)
+		);
 
 		switch (lcdMeterageUnit) {
-			
+
 			// читаем показатель остатка топлива
 			case METERAGE_FUEL_KM:
 			case METERAGE_FUEL_MILES: {
-				
-				// преобразуем LCD - значение в число
-				value = LCD_getValue(lcdMeterage);
-				
+
 				// конвертируем в км, в случае если установлены мили и мы прочитали что - то осмысленное
-				if (lcdMeterageUnit == METERAGE_FUEL_MILES && value != INFINITY && value != 0)
-					value = ceil(value * MILE_TO_KM);
-				
+				if (lcdMeterageUnit == METERAGE_FUEL_MILES && meterage != INFINITY && meterage != 0)
+					meterage = ceil(meterage * MILE_TO_KM);
+
 				// обновляем значение
-				fuel = value;
+				fuel = meterage;
 
 				break;
 			}
@@ -270,19 +279,16 @@ namespace BC_private {
 				// проверяем нужно ли сбросить показатель
 				if (doResetSpeed) {
 					doResetSpeed = false;
-					value = INFINITY;
+					meterage = INFINITY;
 					state = BC_STATE_RESET_PRESS;
 				}
 
-				// в случае, если сбрасывать не нужно, преобразуем LCD - значение в число
-				else value = LCD_getValue(lcdMeterage);
-
 				// конвертируем в км/ч, в случае если установлены мили и мы прочитали что - то осмысленное
-				if (lcdMeterageUnit == METERAGE_SPEED_MPH && value != INFINITY && value != 0)
-					value = ceil(value * MILE_TO_KM);
+				if (lcdMeterageUnit == METERAGE_SPEED_MPH && meterage != INFINITY && meterage != 0)
+					meterage = ceil(meterage * MILE_TO_KM);
 
 				// обновляем значение
-				speed = value;
+				speed = meterage;
 
 				break;
 			}
@@ -295,50 +301,51 @@ namespace BC_private {
 				// проверяем нужно ли сбросить показатель
 				if (doResetConsumption) {
 					doResetConsumption = false;
-					value = INFINITY;
+					meterage = INFINITY;
 					state = BC_STATE_RESET_PRESS;
 				}
 
-				// в случае, если сбрасывать не нужно, преобразуем LCD - значение в число
-				else value = LCD_getValue(lcdMeterage);
-
 				// конвертируем в л/100км, в случае если мы прочитали что - то осмысленное и установлены км/л или галлоны
-				if (value != INFINITY && value != 0) {
-					if (lcdMeterageUnit == METERAGE_CONSUMPTION_MPG) value = round(10 * (MPG_TO_L100KM / value)) / 10;
-					else if (lcdMeterageUnit == METERAGE_CONSUMPTION_KML) value = round(10 * (100 / value)) / 10;
+				if (meterage != INFINITY && meterage != 0) {
+					if (lcdMeterageUnit == METERAGE_CONSUMPTION_MPG) meterage = round(10 * (MPG_TO_L100KM / meterage)) / 10;
+					else if (lcdMeterageUnit == METERAGE_CONSUMPTION_KML) meterage = round(10 * (100 / meterage)) / 10;
 				}
 
 				// обновляем значение
-				consumption = value;
+				consumption = meterage;
 
 				break;
 			}
 		}
 
 		// температура, преобразуем LCD - значение в число и обновляем
-		temperature = LCD_getValue(lcdTemperature);
+		temperature = LCD_getValue(
+			LCD_10T(b04, 0) | LCD_10TL(b04, 1) | LCD_10BL(b04, 2) | LCD_MINUS(b04, 3) | LCD_10TR(b04, 4) | LCD_10C(b04, 5) | LCD_10BR(b04, 6) | LCD_10B(b04, 7) |
+			LCD_1T(b05, 0) | LCD_1TL(b05, 1) | LCD_1BL(b05, 2) | LCD_1TR(b05, 4) | LCD_1C(b05, 5) | LCD_1BR(b05, 6) | LCD_1B(b05, 7)
+		);
 
 		// в случае если не нужно сбрасывать показатель, переключаем режим
 		if (state == BC_STATE_DONE) state = BC_STATE_MODE_PRESS;
 	}
+
 
 	// обработчик SPI - прерывания
 	ISR(SPI_STC_vect) {
 		uint8_t value = SPDR;
 		switch (state++) {
 			case 0: if (value != LC75874_X_START) state = BC_STATE_START; break;
-			case 4: lcdTemperature = LCD_10T(value, 0) | LCD_10TL(value, 1) | LCD_10BL(value, 2) | LCD_MINUS(value, 3) | LCD_10TR(value, 4) | LCD_10C(value, 5) | LCD_10BR(value, 6) | LCD_10B(value, 7); break;
-			case 5: lcdTemperature |= LCD_1T(value, 0) | LCD_1TL(value, 1) | LCD_1BL(value, 2) | LCD_1TR(value, 4) | LCD_1C(value, 5) | LCD_1BR(value, 6) | LCD_1B(value, 7); break;
+			case 4: b04 = value; break;
+			case 5: b05 = value; break;
 			case 10: if (value >> 6 != LC75874_1_END) state = BC_STATE_START; break;
 			case 11: if (value != LC75874_X_START) state = BC_STATE_START; break;
-			case 18: lcdMeterage = LCD_100T(value, 4) | LCD_100TL(value, 5) | LCD_100BL(value, 6) | LCD_1000(value, 7); break;
-			case 19: lcdMeterage |= LCD_100TR(value, 0) | LCD_100C(value, 1) | LCD_100BR(value, 2) | LCD_100B(value, 3) | LCD_10T(value, 4) | LCD_10TL(value, 5) | LCD_10BL(value, 6); break;
-			case 20: lcdMeterage |= LCD_10TR(value, 0) | LCD_10C(value, 1) | LCD_10BR(value, 2) | LCD_10B(value, 3); break;
+			case 18: b18 = value; break;
+			case 19: b19 = value; break;
+			case 20: b20 = value; break;
 			case 21: if (value >> 6 != LC75874_2_END) state = BC_STATE_START; break;
 			case 22: if (value != LC75874_X_START) state = BC_STATE_START; break;
-			case 23: lcdMeterage |= LCD_1T(value, 0) | LCD_1TL(value, 1) | LCD_1BL(value, 2) | LCD_1TR(value, 4) | LCD_1C(value, 5) | LCD_1BR(value, 6) | LCD_1B(value, 7); break;
+			case 23: b23 = value; break;
 			case 24: lcdMeterageUnit = value; break;
-			case 28: lcdMeterage |= LCD_DOT(value, 7); break;
+			case 28: b28 = value; break;
 			case 32: if (value >> 6 != LC75874_3_END) state = BC_STATE_START; break;
 			case 33: if (value != LC75874_X_START) state = BC_STATE_START; break;
 			case 43: if (value >> 6 == LC75874_4_END) SPI.detachInterrupt(); else state = BC_STATE_START; break;
@@ -378,9 +385,6 @@ namespace BC {
 
 			// начинаем получать данные от мастера
 			case BC_STATE_IDLE:
-				lcdMeterage = 0;
-				lcdTemperature = 0;
-				lcdMeterageUnit = 0;
 				state = BC_STATE_START;
 				SPI.attachInterrupt();
 				break;

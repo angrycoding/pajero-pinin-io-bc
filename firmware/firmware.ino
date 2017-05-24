@@ -10,7 +10,7 @@
 // минимальный интервал между обновлениями БК
 #define BC_UPDATE_INTERVAL_MS 0
 // минимальный интервал между опросами K-line
-#define KL_REQUEST_INTERVAL 5
+#define KL_REQUEST_INTERVAL 2
 
 // интервал watch-dog таймера
 #define WDT_INTERVAL WDTO_4S
