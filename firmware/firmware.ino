@@ -7,8 +7,6 @@
 #define PIN_BC_MODE 2
 // пин контроллирующий кнопку сброса
 #define PIN_BC_RESET 6
-// минимальный интервал между обновлениями БК
-#define BC_UPDATE_INTERVAL_MS 0
 // минимальный интервал между опросами K-line
 #define KL_REQUEST_INTERVAL 2
 
@@ -39,7 +37,7 @@ void setup() {
 	wdt_enable(WDT_INTERVAL);
 	Serial.begin(SERIAL_SPEED);
 	KL::init(KL_REQUEST_INTERVAL);
-	BC::init(PIN_BC_MODE, PIN_BC_RESET, BC_UPDATE_INTERVAL_MS);
+	BC::init(PIN_BC_MODE, PIN_BC_RESET);
 	// otherwise there is a risk to send something several times in millis() - time
 	delay(1);
 }

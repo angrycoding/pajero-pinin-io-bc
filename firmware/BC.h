@@ -27,8 +27,6 @@
 #define BC_STATE_MODE_PRESS 103
 // переключение режима в процессе
 #define BC_STATE_MODE_RELEASE 104
-// ожидание истечения интервала между обновлениями
-#define BC_STATE_UPDATE_DELAY 105
 // ожидаем первого байта от мастера
 #define BC_STATE_START 0
 // успешно приняли данные от мастера
@@ -161,8 +159,6 @@ namespace BC_private {
 	uint8_t PIN_MODE;
 	// пин контроллирующий кнопку сброса
 	uint8_t PIN_RESET;
-	// минимальный интервал между обновлениями БК
-	uint32_t UPDATE_INTERVAL;
 
 	// внешняя температура
 	float temperature = INFINITY;
@@ -356,9 +352,9 @@ namespace BC_private {
 
 namespace BC {
 
-	// процедура инициализации, вызывается в setup(), принимает номера пинов
-	// на которые повешаны кнопки сброса и режима, а также интервал обновления показаний
-	void init(uint8_t PIN_MODE, uint8_t PIN_RESET, uint32_t UPDATE_INTERVAL) {
+	// процедура инициализации, вызывается в setup()
+	// принимает номера пинов на которые повешаны кнопки сброса и режима
+	void init(uint8_t PIN_MODE, uint8_t PIN_RESET) {
 		using namespace BC_private;
 		// настройка SPI в режиме slave
 		SPCR |= (1 << SPE);
@@ -366,7 +362,6 @@ namespace BC {
 		SPI.setDataMode(SPI_MODE3);
 		// инициализация переменных и настройка пинов
 		state = BC_STATE_IDLE;
-		BC_private::UPDATE_INTERVAL = UPDATE_INTERVAL;
 		pinMode(BC_private::PIN_MODE = PIN_MODE, OUTPUT);
 		pinMode(BC_private::PIN_RESET = PIN_RESET, OUTPUT);
 		// просто для того, чтобы было понятно в каком состоянии должны
@@ -420,17 +415,8 @@ namespace BC {
 			case BC_STATE_MODE_RELEASE:
 				if (millis() - actionTime >= MODE_ACTION_DELAY_MS) {
 					digitalWrite(PIN_MODE, LOW);
-					if (UPDATE_INTERVAL) {
-						actionTime = millis();
-						state = BC_STATE_UPDATE_DELAY;
-					} else state = BC_STATE_IDLE;
-				}
-				break;
-
-			// ждем до следующего цикла обновления
-			case BC_STATE_UPDATE_DELAY:
-				if (millis() - actionTime >= UPDATE_INTERVAL)
 					state = BC_STATE_IDLE;
+				}
 				break;
 
 		}
